@@ -1,0 +1,29 @@
+# docparse 多模态解析依赖（Python 3.11）
+# 安装到解析环境 docparse；平台依赖在 requirements-rag.txt。
+# 安装顺序建议：
+#   1) pip install -r requirements-docparse.txt
+#   2) 若需要 region 模式，再单独装 paddle（见文件末尾注释）
+#
+# 基础依赖：原生 PDF 抽取、Office 解析、CLI/Web
+Pillow>=10
+pypdfium2>=4
+numpy
+wordfreq
+PyMuPDF>=1.24
+python-docx>=1.1
+python-pptx>=0.6.23
+openpyxl>=3.1
+fastapi>=0.115
+uvicorn>=0.30
+python-multipart>=0.0.9
+markdown>=3.6
+
+# region 模式（印刷表格/密集公式，可选，安装体积约 1.1GB）
+# 实测组合（2026-11，Python 3.11）：
+#   paddlepaddle==3.3.1
+#   paddlex[cv]==3.7.2
+#   opencv-contrib-python==4.10.0.84
+#   shapely==2.2.0
+# 先装 paddlepaddle，再装 paddlex：
+#   pip install paddlepaddle==3.3.1
+#   pip install "paddlex[cv]==3.7.2" shapely==2.2.0

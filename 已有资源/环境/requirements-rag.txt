@@ -1,0 +1,22 @@
+# 平台 + Milvus/嵌入依赖（Python 3.11）
+#
+# 安装到平台环境 rag；解析依赖在 requirements-docparse.txt。
+#
+# 先装 CPU 版 torch，避免 pip 默认拉取体积很大的 CUDA 包：
+#   pip install torch==2.6.0 --index-url https://download.pytorch.org/whl/cpu
+# 有 NVIDIA GPU 时改用官方 CUDA 索引，并确认驱动版本。
+#
+# 然后再执行：pip install -r requirements-rag.txt
+
+pymilvus==2.5.6
+sentence-transformers==4.0.2
+transformers==4.51.1
+numpy
+requests>=2.31
+fastapi>=0.115
+uvicorn>=0.30
+pydantic>=2.0
+
+# 可选：无 Docker 的轻量 Milvus（适合 dense-only 小实验；
+# BM25/混合检索请用 standalone Milvus 2.5+）
+milvus-lite==3.2.1

@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>docparse</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header>
+  <div class="brand">docparse <span class="ver" id="version"></span></div>
+  <div id="health" class="health muted">检查中…</div>
+</header>
+
+<main>
+  <section class="panel">
+    <h2>1. 选择文件</h2>
+    <div id="dropzone" class="dropzone">
+      <input type="file" id="fileInput" multiple hidden>
+      <p>拖拽文件到这里，或 <button id="browse" type="button" class="ghost">选择文件</button></p>
+      <p class="hint">PDF / PNG / JPG / TIFF / DOCX / PPTX / XLSX / TXT · 可多选</p>
+    </div>
+    <ul id="fileList" class="file-list"></ul>
+  </section>
+
+  <section class="panel">
+    <h2>2. 参数</h2>
+    <div class="grid">
+      <label>模式
+        <select id="mode">
+          <option value="auto">auto · 整页优先，失败升级</option>
+          <option value="page">page · 整页</option>
+          <option value="region">region · 版面分块</option>
+        </select>
+      </label>
+      <label>DPI <input id="dpi" type="number" value="200" min="72" max="300"></label>
+      <label>最大页数 <input id="maxPages" type="number" placeholder="全部" min="1"></label>
+      <label class="wide">KIE 字段（逗号分隔）
+        <input id="fields" placeholder="发票号码,开票日期,价税合计">
+      </label>
+      <div class="wide formats">
+        <span>输出格式</span>
+        <label><input type="checkbox" value="md" checked> Markdown</label>
+        <label><input type="checkbox" value="json" checked> JSON</label>
+        <label><input type="checkbox" value="html"> HTML</label>
+        <label><input type="checkbox" value="txt"> TXT</label>
+      </div>
+    </div>
+    <button id="start" class="primary" disabled>开始解析</button>
+  </section>
+
+  <section class="panel">
+    <div class="jobs-head">
+      <h2>3. 任务</h2>
+      <button id="refresh" class="ghost" type="button">刷新</button>
+    </div>
+    <div id="jobs" class="jobs-list"><p class="muted">暂无任务</p></div>
+  </section>
+</main>
+
+<div id="modal" class="modal hidden">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3 id="modalTitle">结果</h3>
+      <div class="modal-actions">
+        <a id="bundleLink" class="ghost" href="#">下载 ZIP</a>
+        <button id="closeModal" class="ghost" type="button">关闭</button>
+      </div>
+    </div>
+    <div id="tabs" class="tabs"></div>
+    <div id="preview" class="preview"></div>
+  </div>
+</div>
+
+<div id="toast" class="toast hidden"></div>
+<script src="/static/app.js"></script>
+</body>
+</html>

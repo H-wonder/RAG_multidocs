@@ -1,0 +1,17 @@
+Pillow>=10
+pypdfium2>=4
+numpy
+wordfreq
+PyMuPDF>=1.24
+python-docx>=1.1
+python-pptx>=0.6.23
+openpyxl>=3.1
+
+# Web UI
+fastapi>=0.115
+uvicorn>=0.30
+python-multipart>=0.0.9
+markdown>=3.6
+
+# Region mode (optional): install paddlepaddle for your CPU/GPU first, then:
+#   pip install "paddlex[cv]>=3.0" shapely

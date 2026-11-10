@@ -1,0 +1,8 @@
+# 平台开发/测试工具。安装到 rag 环境即可；它不是一套独立环境。
+# 平台基础模块本身只依赖 Python 3.10+ 标准库。
+
+pytest>=8.0
+ruff>=0.6
+
+# 可选：plugin_registry 的完整 JSON Schema 校验
+jsonschema>=4.0

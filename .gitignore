@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+*.egg-info/
+
+# Secrets / local environment
+.env
+.env.*
+!.env.example
+
+# Runtime data / models / caches
+data/
+milvus_data/
+*.db
+*.sqlite
+*.sqlite3
+*.log
+已有资源/样例/demo_index.json
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+
+# Archives
+*.zip
