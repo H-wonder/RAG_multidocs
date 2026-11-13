@@ -9,6 +9,7 @@
 
 - 仓库：<https://github.com/H-wonder/RAG_multidocs>
 - 设计文档：[docs/DESIGN.md](docs/DESIGN.md)（提交版为 `docs/DESIGN.docx`）
+- 后续优化与分工：[docs/ROADMAP.md](docs/ROADMAP.md)
 - 已有资源与来源说明：[../已有资源/README.md](../已有资源/README.md)
 
 ## 用户、场景与范围
@@ -292,6 +293,12 @@ MIT 简洁、便于课程展示与后续复用；第三方/来源代码的许可
 - 关键词回退索引为本地 JSON，适合课程规模；Milvus 主路径由 Docker 卷持久化；
 - 生成式问答需要外部 LLM API 或本地 Ollama；未实现流式输出、多轮记忆；
 - 未实现用户系统、权限、在线编辑、插件市场或热加载。
+
+## 后续工作
+
+P0/P1/P2 任务、负责人建议、验收标准和课程要求对照见
+[docs/ROADMAP.md](docs/ROADMAP.md)。提交前先完成 P0，不要为 P2 功能挤占
+真实解析、问答验收、CI 和发布记录的时间。
 
 ## 已有起点与本次增量
 

@@ -9,6 +9,18 @@ Airflow、邮件通知、人工复核等与本课程无关的运行时。
 > [文档/05-课程项目复用映射.md](文档/05-课程项目复用映射.md) 与
 > [文档/06-来源许可与依赖.md](文档/06-来源许可与依赖.md)。
 
+## 当前项目实现状态
+
+正式产品在 [`../project/`](../project/)，已实现：
+
+- TXT/Markdown/PDF Connector、Milvus dense+BM25 检索、BM25 回退；
+- embedding/chat provider 选择（API Key 仅环境变量）；
+- `rag-cli ask` 检索增强问答，答案带 `[n]` 引用；
+- 25 个离线单元测试 + 1 个 Milvus 集成测试，CI unit/integration 两个 job。
+
+后续 P0/P1/P2 任务和组内分工见
+[`../project/docs/ROADMAP.md`](../project/docs/ROADMAP.md)。
+
 ## 目录
 
 ```text

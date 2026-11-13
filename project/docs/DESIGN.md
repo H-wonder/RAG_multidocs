@@ -441,6 +441,8 @@ rag-cli ingest --source txt --path samples/notes.txt   # 核心仍可用
 | 问答 | FakeChat + 命中证据 | 证据进入 prompt、答案带引用、无证据不调用模型 |
 | 模型选择 | provider 列表/Key 检查/models use | 环境变量 Key、配置持久化 |
 
+当前结果：离线单元测试 25 passed；Milvus 集成测试 1 passed（本地隔离容器）。
+
 ### 7.2 CI 与静态检查
 
 - 仓库根 `.github/workflows/ci.yml`：

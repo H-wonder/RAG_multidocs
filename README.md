@@ -13,6 +13,7 @@ Milvus 混合检索 + BM25 回退、检索增强问答、测试与 CI 已落地�
 | --- | --- |
 | [`project/`](project/) | 可运行产品：CLI、Core、内置 Connector、独立 Markdown 扩展、测试、CI |
 | [`project/docs/DESIGN.docx`](project/docs/DESIGN.docx) | 系统设计文档（提交版） |
+| [`project/docs/ROADMAP.md`](project/docs/ROADMAP.md) | 后续优化方向、P0/P1/P2 分工与验收标准 |
 | [`已有资源/代码/`](已有资源/代码/) | 文档模型、切块、去重、BM25 索引、Milvus 混合检索、docparse Connector、插件注册 |
 | [`已有资源/文档/`](已有资源/文档/) | 流水线、IR、切块/去重、Milvus、课程复用映射、来源许可、环境搭建 |
 | [`已有资源/环境/`](已有资源/环境/) | `setup.sh`、`check_env.sh`、requirements、`.env.example`、Milvus Docker 配置 |
