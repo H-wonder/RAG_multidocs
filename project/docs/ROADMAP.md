@@ -37,121 +37,120 @@
 
 ## 2. 优先级总览
 
+> 分工前提：A（项目负责人）已完成核心、Connector 契约、Milvus、provider、问答和文档骨架，
+> 不再承担新增功能；剩余 P0/P1 由 **B、C 两位成员**分担，A 只做最终合并、Release 确认和必要答疑。
+
 ### P0：提交前必须完成
 
-| ID | 任务 | 建议负责人 | 依赖 | 验收标准 |
+| ID | 任务 | 负责人 | 依赖 | 验收标准 |
 | --- | --- | --- | --- | --- |
-| P0-1 | 真实 PDF 解析验收 | B（扩展/多模态） | docparse 环境、Ollama | 至少 1 个原生 PDF + 1 个扫描件跑通；记录页数、chunks、是否需 OCR；失败行为符合 `CONNECTOR_UNAVAILABLE/PARSE_ERROR` |
-| P0-2 | 真实 embedding 验收 | C（索引/发布） | Milvus 2.5+、bge 模型 | 用 `local` 或 `dashscope` 入库；`search` 命中带 `source/page/section_path`；维度与集合一致 |
-| P0-3 | 真实问答验收 | C + A | 任一 chat Key 或 Ollama | `rag-cli ask` 返回答案 + `[n]` 来源；无证据时不调用 LLM；错误 Key 有明确提示 |
-| P0-4 | CI integration 实际运行 | C | GitHub Actions | Actions 页面出现 integration job 的绿色 run；把 run 链接/编号写进 README/RELEASE |
-| P0-5 | 成员贡献与 Review 记录 | 全员 | Git 历史 | README 成员表填真实 Commit/PR；至少每人一次实质改动 + 一次具体 Review |
-| P0-6 | 设计文档最终同步 | A | 代码/接口稳定 | `docs/DESIGN.docx` 与当前实现一致；含架构图、流程图、扩展接入示例 |
-| P0-7 | 发布 Tag/发行物 | C | P0-1~P0-5 | 工作区干净、测试通过、发行 ZIP 可解压运行；`release/RELEASE.md` 记录 Commit/Tag/SHA-256 |
-| P0-8 | Milvus 数据卷问题处理 | C | 现有 `milvus-standalone` | 说明 embedded etcd 重启后 `node not match` 的处理方式；新环境可重复执行 |
+| P0-1 | 真实 PDF / 扫描件 / OCR 验收 | **B** | docparse 环境、Ollama | 至少 1 个原生 PDF + 1 个扫描件跑通；记录页数、chunks、是否需 OCR；失败行为符合 `CONNECTOR_UNAVAILABLE/PARSE_ERROR` |
+| P0-2 | 真实 embedding 验收（bge/DashScope） | **C** | Milvus 2.5+、模型或 Key | `rag-cli ingest` 入库；`search` 命中带 `source/page/section_path`；维度与集合一致 |
+| P0-3 | 真实 LLM 问答验收 | **C**（B 复核引用） | 任一 chat Key 或 Ollama | `rag-cli ask` 返回答案 + `[n]` 来源；无证据不调用 LLM；错误 Key 有明确提示 |
+| P0-4 | CI integration 实际运行 | **C** | GitHub Actions | Actions 出现 integration job 绿色 run；run 链接/编号写入 README/RELEASE |
+| P0-5 | 成员贡献与 Review 记录 | **B、C**（A 已有部分只确认） | Git 历史 | 每人填自己的 Commit/PR 和一次具体 Review；不能只有 LGTM |
+| P0-6 | 设计文档最终同步 | **B**（C 复核） | 代码/接口稳定 | `docs/DESIGN.docx` 与实现一致；含架构图、流程图、扩展接入示例 |
+| P0-7 | 发布 Tag/发行物 | **C** | P0-1~P0-5 | 工作区干净、测试通过、发行 ZIP 可解压运行；`release/RELEASE.md` 记录 Commit/Tag/SHA-256 |
+| P0-8 | Milvus 数据卷问题处理 | **C** | 现有 `milvus-standalone` | 说明 embedded etcd 重启后 `node not match` 的处理方式；新环境可重复执行 |
 
-### P1：时间允许时做，直接影响完成度
+### P1：P0 完成后再做，直接影响完成度
 
-| ID | 任务 | 建议负责人 | 验收标准 |
+| ID | 任务 | 负责人 | 验收标准 |
 | --- | --- | --- | --- |
-| P1-1 | `models test` 命令 | A | `rag-cli models test --kind chat/embedding` 能实际调用并返回耗时/模型名；无 Key 时提示环境变量 |
-| P1-2 | 嵌入维度自动探测 | A | 指定本地模型但不填 dim 时自动读取模型维度；维度与集合不一致时拒绝写入并给出提示 |
-| P1-3 | 集合命名带 model/dim | C | 换 embedding 模型自动使用新集合，避免旧向量混用；文档说明 |
-| P1-4 | 问答质量与引用格式 | C | 检查引用编号与来源一一对应；无证据/矛盾证据有拒答；prompt 有长度上限 |
-| P1-5 | PDF 样例与契约测试 | B | 新增 `samples/pdfs/` 与测试；至少一个原生 PDF 的 IR 映射/切块断言；扫描件可标记 integration |
-| P1-6 | Mock LLM HTTP 测试 | A | 用本地 mock 测试 `OpenAICompatibleChat` 请求体/错误/重试；CI 不依赖真实 Key |
-| P1-7 | CLI 错误与日志 | C | 所有失败有 `CODE: message`；不打印 Key/全文；超时可配置 |
-| P1-8 | CI 缓存/超时/失败日志 | C | pip cache；Milvus 启动失败时输出容器日志；integration job 超时合理 |
+| P1-1 | `models test` 命令 | **B** | `rag-cli models test --kind chat/embedding` 实际调用并返回耗时/模型名；无 Key 时提示环境变量 |
+| P1-2 | 嵌入维度自动探测 | **C** | 本地模型不填 dim 时自动读取维度；维度与集合不一致时拒绝写入并提示 |
+| P1-3 | 集合命名带 model/dim | **C** | 换 embedding 模型自动使用新集合；文档说明 |
+| P1-4 | 问答质量与引用测试 | **B** | 引用编号与来源一一对应；无证据/矛盾证据拒答；prompt 有长度上限 |
+| P1-5 | PDF 样例与契约测试 | **B** | 新增 `samples/pdfs/`；原生 PDF 的 IR 映射/切块断言；扫描件可标 integration |
+| P1-6 | Mock LLM HTTP 测试 | **B** | 用本地 mock 测试 `OpenAICompatibleChat` 请求体/错误/重试；CI 不依赖真实 Key |
+| P1-7 | CLI 错误与日志 | **C** | 所有失败有 `CODE: message`；不打印 Key/全文；超时可配置 |
+| P1-8 | CI 缓存/超时/失败日志 | **C** | pip cache；Milvus 启动失败输出容器日志；integration job 超时合理 |
 
-### P2：可选增强，不要挤占 P0
+### P2：可选增强，不强制、不得挤占 P0
 
-| ID | 任务 | 负责人 | 说明 |
+| ID | 任务 | 建议 | 说明 |
 | --- | --- | --- | --- |
-| P2-1 | 简易 Web 检索页 | C | FastAPI + 单页：连接器列表、导入表单、检索/问答结果带来源；复用 Core，不写第二套业务逻辑 |
-| P2-2 | HTML Connector | B | 与 Markdown 二选一即可；不要同时做两套扩展机制 |
-| P2-3 | SimHash 去重 | A | 参考 `已有资源/代码/dedup.py`；重复文档不入索引，保留状态/原因 |
-| P2-4 | 增量清单 | A | SQLite manifest；内容变化只升 version，删除文件清理索引 |
-| P2-5 | 查询扩写/重排 | C | 可选接入 DashScope/DeepSeek；失败静默降级，不影响主查询 |
-| P2-6 | 文档截图高亮 | B | 用 docparse bbox 裁原文图；至少保留 page + bbox 字段 |
+| P2-1 | 简易 Web 检索页 | C（有余力） | FastAPI + 单页：连接器列表、导入、检索/问答结果带来源；复用 Core |
+| P2-2 | HTML Connector | B（有余力） | 与 Markdown 二选一；不要同时做两套扩展机制 |
+| P2-3 | SimHash 去重 | B/C 协商 | 参考 `已有资源/代码/dedup.py`；重复文档不入索引 |
+| P2-4 | 增量清单 | B/C 协商 | SQLite manifest；内容变化升 version，删除文件清理索引 |
+| P2-5 | 查询扩写/重排 | C（有余力） | 可选接入 DashScope/DeepSeek；失败静默降级 |
+| P2-6 | 文档截图高亮 | B（有余力） | 用 docparse bbox 裁原文图；至少保留 page + bbox |
 
-**不要做**：用户体系、权限、多租户、插件市场、热加载、复杂 Agent、跨组部署。这些不增加课程评分，且会稀释 P0。
+**不要做**：用户体系、权限、多租户、插件市场、热加载、复杂 Agent、跨组部署。
+这些不增加课程评分，且会稀释 P0。
 
-## 3. 按角色的工作包
+## 3. 剩余两位成员的工作包
 
-### A：核心/契约/模型层
+### B：多模态 / 独立扩展 / 文档验收
 
-**目标**：让接口稳定、模型选择可验证、错误可解释。
+**你接手的目标**：证明多模态和扩展真实可用，并让设计文档与实现一致。
 
-1. **Provider 与模型校验**
-   - `models test`：embedding/chat 实际调用；输出 provider/model/耗时；失败返回非 0；
-   - 维度自动探测：本地模型未填 dim 时读取 `get_sentence_embedding_dimension()`；
-   - 维度不一致时拒绝写入 Milvus，提示新建集合；
-   - 配置校验：未知 provider、空 Key、非法 URL 统一报错。
-2. **问答契约**
-   - prompt 证据长度上限、top-k 上限；
-   - 引用编号与 `citations` 一致性测试；
-   - 无证据/矛盾证据拒答测试；
-   - 真实 LLM 错误（401/429/超时）转成 `LLM_ERROR`，不泄露 Key。
-3. **测试**
-   - mock HTTP 测 `OpenAICompatibleChat`；
-   - provider 选择/环境变量 Key 测试；
-   - 审查 B 的扩展是否只依赖公开契约。
+1. **P0-1 PDF/扫描件验收**
+   - 准备 `samples/pdfs/`：一个原生文本 PDF、一个扫描件/图片；
+   - 原生 PDF：`rag-cli ingest --source pdf ...`，核对页数、`section_path`、表格块；
+   - 扫描件：启动 Ollama + docparse，记录 OCR 耗时、失败模式、是否需要 `region`；
+   - 失败路径：不存在的 PDF、损坏 PDF、docparse 未配置。
+2. **P0-6 设计文档同步**
+   - 代码/接口有变化时更新 `DESIGN.md` 并重新导出 `DESIGN.docx`；
+   - 至少保留两张图：架构图、关键流程图；
+   - 扩展接入示例与 `manifest.json` 保持一致。
+3. **P1-1 / P1-4 / P1-5 / P1-6**
+   - `models test`：至少测一个 embedding + 一个 chat provider；无 Key 时给出明确提示；
+   - 问答引用测试：引用编号/来源对应；无证据拒答；prompt 长度上限；
+   - PDF 契约测试：IR → Document/Chunk 的页码、章节、表格断言；
+   - mock LLM HTTP：请求体、401/429/超时/畸形响应。
+4. **可选 P2-2 / P2-6**：HTML Connector、bbox 截图高亮；只在 P0/P1 完成后做。
 
-**验收**：`pytest -m "not integration"` 全绿；`ruff` 通过；`models test` 在至少一个 provider 上成功（无 Key 时明确失败）。
+**B 的验收**：PDF 成功/失败可复现；扩展接入前后 `git diff -- src/rag_multidocs` 为空；
+`pytest -m "not integration"` 全绿；文档与实现一致。
 
-### B：独立扩展/多模态
+### C：索引 / 问答 / CI / 发布
 
-**目标**：证明扩展可插拔，并补齐多模态真实链路。
+**你接手的目标**：让 Milvus、真实模型、CI 和最终交付可演示、可追溯。
 
-1. **Markdown 扩展加固**
-   - 标题/空文件/编码错误/空目录测试；
-   - 禁用扩展开关与“核心源码不变”的 diff 记录；
-   - 扩展 README 保持与 manifest/接口一致。
-2. **PDF/扫描件验收**
-   - 准备 2 个样例：原生文本 PDF、扫描件/图片；
-   - 原生 PDF：验证页数、`section_path`、表格块；
-   - 扫描件：启动 Ollama + docparse，记录 OCR 耗时/失败模式；
-   - 结果写入 README/设计文档“已知限制”。
-3. **可选 HTML Connector**（P2）
-   - 只在 Markdown 扩展稳定后做；复用同一 manifest/adapter 契约。
-
-**验收**：`rag-cli ingest --source pdf ...` 成功/失败行为可复现；扩展接入前后 `git diff -- src/rag_multidocs` 为空；至少一条契约/集成测试。
-
-### C：索引/CLI/CI/发布
-
-**目标**：让 Milvus、问答、CI 和最终交付可演示、可追溯。
-
-1. **Milvus + 真实 embedding**
+1. **P0-2 真实 embedding**
    - 启动 Milvus 2.5+（Docker）；
-   - 用 `local` bge 或 `dashscope` 入库、检索；
-   - 换模型时新建集合；记录维度；
-   - 处理现有 `milvus-standalone` embedded etcd `node not match`：清理旧卷重建或换新容器。
-2. **问答验收**
+   - 用 `local` bge 或 `dashscope` 入库；换模型新建集合；
+   - 记录维度与 collection；`search` 命中带来源。
+2. **P0-3 真实问答**
    - 设置 `DEEPSEEK_API_KEY`/`DASHSCOPE_API_KEY`/`OPENAI_API_KEY` 或本地 Ollama；
    - `rag-cli ask` 检查答案、引用、无证据拒答；
-   - 记录一次成功运行的命令和输出（脱敏）。
-3. **CI**
+   - 记录一次成功运行的命令/输出（脱敏）。
+3. **P0-4 / P0-8 CI 与 Milvus**
    - 确认 unit + integration 两个 job 实际运行；
    - integration 失败时输出 Milvus 日志；
+   - 现有 `milvus-standalone` embedded etcd `node not match`：备份后重建卷，或用隔离容器；
    - 把 run 链接/编号写进 README/RELEASE。
-4. **发布**
+4. **P0-7 发布**
    - 生成发行 ZIP/可运行目录；
    - 新目录解压按 README 跑通；
    - Tag + `release/RELEASE.md`（Commit/Tag/SHA-256/结果）。
+5. **P1-2 / P1-3 / P1-7 / P1-8**
+   - 维度自动探测、集合命名、CLI 错误/日志、CI 缓存/超时/失败日志。
+6. **可选 P2-1 / P2-5**：Web、查询扩写/重排；只在 P0/P1 完成后做。
 
-**验收**：Actions 两个 job 有真实记录；Release 记录完整；新目录可运行。
+**C 的验收**：Milvus/问答真实链路可复现；Actions 两个 job 有真实记录；
+Release 记录完整；新目录可运行。
+
+### 交叉 Review 与合并
+
+- B 的 PDF/文档改动由 C 审查；C 的 Milvus/CI/发布改动由 B 审查；
+- A 只做最终合并确认和必要的接口答疑，不再承担新增功能；
+- 每条 Review 至少指出一个行为、边界、失败处理或测试问题，不能只有 LGTM；
+- 合并前确认工作区干净、相关测试通过、文档已同步。
 
 ## 4. 建议时间安排（按 7 天缓冲）
 
 | 天 | 工作 | 负责人 |
 | --- | --- | --- |
 | D1 | P0-1 PDF 样例 + 真实解析；P0-2 Milvus bge 入库 | B / C |
-| D2 | P0-3 真实问答；修错误提示/引用 | C / A |
-| D3 | P0-4 CI integration 实跑；P0-8 Milvus 数据卷处理 | C |
-| D4 | P1-1/P1-2 models test/维度探测；P1-5 PDF 测试 | A / B |
-| D5 | P0-5 Review/成员表；P0-6 设计文档同步 | 全员 / A |
+| D2 | P0-3 真实问答；P1-1 models test | C / B |
+| D3 | P0-4 CI integration；P0-8 Milvus 数据卷 | C |
+| D4 | P0-6 设计文档；P1-4/P1-5 PDF/引用测试 | B |
+| D5 | P0-5 成员表/Review；P1-2/P1-3 维度/集合 | B / C |
 | D6 | P0-7 发行物、Tag、RELEASE；新目录自检 | C |
-| D7 | 缓冲：修 CI/文档/演示；不要新增功能 | 全员 |
+| D7 | 缓冲：修 CI/文档/演示；不新增 P2 | B / C |
 
 ## 5. 风险与处理
 
