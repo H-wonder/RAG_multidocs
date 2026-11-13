@@ -1,8 +1,11 @@
 # RAG Multidocs——插件化多模态文档接入与检索
 
+![CI](https://github.com/H-wonder/RAG_multidocs/actions/workflows/ci.yml/badge.svg)
+
 面向课程资料使用者：用户指定数据源、导入文档、输入关键词，获得**带来源**的命中文本。
 本项目把“接入 → 统一文档 → 切块 → 索引 → 检索”做成可扩展的插件平台：
-核心只依赖 Connector 公开契约，新增数据源不需要修改核心源码。
+核心只依赖 Connector 公开契约，新增数据源不需要修改核心源码。索引层默认为
+**Milvus dense + BM25 混合检索**，Milvus 不可用时回退到本地 BM25 关键词索引。
 
 - 仓库：<https://github.com/H-wonder/RAG_multidocs>
 - 设计文档：[docs/DESIGN.md](docs/DESIGN.md)（提交版为 `docs/DESIGN.docx`）
@@ -27,7 +30,8 @@ TXT / Markdown / PDF ──► Connector ──► Document ──► Chunk ─�
 - 统一 `Document` / `Chunk` 模型；
 - 内置 TXT Connector（单文件或目录）；
 - 内置 PDF/扫描件/Office Connector（通过 docparse 子进程，可选）；
-- BM25 关键词索引与检索，带来源输出；
+- Milvus 混合检索：dense 向量 + 服务端 BM25，命中带 `source/page/section_path`；
+- 本地 BM25 关键词索引：Milvus 不可用时的离线回退；
 - 接入失败的结构化错误（`FILE_NOT_FOUND`、`EMPTY_SOURCE`、`PARSE_ERROR` 等）。
 
 **独立扩展**：
@@ -41,7 +45,7 @@ TXT / Markdown / PDF ──► Connector ──► Document ──► Chunk ─�
 - 不做用户登录、权限、多租户；
 - 不做爬虫集群、插件市场、热加载；
 - 不做生成式回答（只做可核对的检索证据）；
-- 不把 Milvus/嵌入模型作为运行必需项（关键词索引即可完成闭环）。
+- Milvus/嵌入模型不是硬依赖：不可用时回退关键词索引，保证离线闭环。
 
 ## 快速开始
 
@@ -49,11 +53,28 @@ TXT / Markdown / PDF ──► Connector ──► Document ──► Chunk ─�
 
 核心只依赖 Python 3.10+ 标准库：
 
+项目主体运行在 `rag` conda 环境；docparse 解析环境由子进程调用。
+
+```bash
+conda activate rag
+cd project
+pip install -e ".[dev,milvus]"
+```
+
+如果机器上没有 conda，可以用 venv 跑纯核心/关键词模式：
+
 ```bash
 cd project
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"
+```
+
+Milvus 先启动：
+
+```bash
+docker start milvus-standalone
+curl -s http://localhost:9091/healthz
 ```
 
 PDF/扫描件解析需要另外准备 docparse 环境，见
@@ -63,8 +84,22 @@ PDF/扫描件解析需要另外准备 docparse 环境，见
 
 ```bash
 cp config.example.json config.json
-# 按需修改 docparse_repo / docparse_python；不导入 PDF 时可忽略
+# 默认 index_backend=milvus、embed_backend=local
+# 没有 Milvus 时会自动回退 keyword，并打印 WARN
+# 只跑 CI/冒烟可用 embed_backend=hashing，避免下载模型
 ```
+
+关键字段：
+
+| 字段 | 默认 | 说明 |
+| --- | --- | --- |
+| `index_backend` | `milvus` | `milvus`（主）或 `keyword`（离线） |
+| `fallback_to_keyword` | `true` | Milvus 不可用时自动回退 |
+| `milvus_uri` | `http://localhost:19530` | Milvus 地址 |
+| `milvus_db` / `milvus_collection` | `rag` / `rag_chunks` | 数据库/集合 |
+| `embed_backend` | `local` | `local`（bge）/`dashscope`/`hashing`（CI） |
+| `embed_model` / `embed_dim` | bge-small-zh / 512 | 必须与集合维度一致 |
+| `docparse_repo` / `docparse_python` | 空 | PDF 多模态解析 |
 
 ### 3. 导入与检索
 
@@ -111,7 +146,9 @@ CLI ──► Core（IngestService / SearchService / ConnectorRegistry）
              ├── 内置 Connector：TXT、PDF/扫描件/Office（docparse 子进程）
              └── 独立扩展：Markdown 目录（connectors/connector_markdown）
              │
-             └── KeywordIndex（BM25，本地 index.json）
+             ├── MilvusIndex（dense + BM25，主）
+             │     └── Embedder（bge / DashScope / hashing）
+             └── KeywordIndex（BM25，本地 index.json，回退）
 ```
 
 ### 独立扩展如何接入
@@ -155,9 +192,21 @@ git diff --stat -- src/rag_multidocs
 | 边界/失败 | 路径不存在、空文件、空目录、未知 Connector、禁用 Connector |
 | 扩展接入 | Markdown 目录导入 → 同一检索入口命中；禁用后核心仍可用 |
 | PDF 映射 | docparse IR → Document/Chunk，断言页码、章节、表格块 |
+| 回退 | Milvus 不可用时自动回退 keyword，并打印 WARN |
+| Milvus 集成 | `@pytest.mark.integration`：写入 → dense+BM25 检索 → 来源断言 |
 | CLI | `ingest/search/docs/connectors` 的输出与退出码 |
 
-CI 配置：仓库根 `.github/workflows/ci.yml`，执行 `pytest` 与 `ruff check`。
+本地命令：
+
+```bash
+pytest -q -m "not integration"       # 离线单元测试
+ruff check src tests connectors
+
+# 需要 Milvus 2.5+
+MILVUS_URI=http://localhost:19530 pytest -q -m integration
+```
+
+CI 配置：仓库根 `.github/workflows/ci.yml`，包含 unit job 和 Milvus integration job。
 
 **故意引入错误演示**：把 `TxtConnector` 中 `if not text.strip()` 改成
 `if False`，`test_empty_file_and_empty_directory` 会失败；恢复后测试通过。
@@ -189,11 +238,12 @@ MIT 简洁、便于课程展示与后续复用；第三方/来源代码的许可
 
 已知限制：
 
-- BM25 是词面检索，同义改写召回有限；向量检索未纳入核心；
+- Milvus 主检索已接入 dense + BM25；关键词回退仍是词面检索，同义改写召回有限；
+- 本地嵌入首次运行需下载 bge 模型；换模型必须新建同维度集合；
 - PDF/扫描件依赖外部 docparse 与 Ollama，未配置时返回
   `CONNECTOR_UNAVAILABLE`，不影响 TXT/Markdown；
 - 中文分词为单字 + 二元组，未做领域词典；
-- 索引为本地 JSON，适合课程规模，不适合大规模并发/增量更新；
+- 关键词回退索引为本地 JSON，适合课程规模；Milvus 主路径由 Docker 卷持久化；
 - 未实现用户系统、权限、在线编辑、插件市场或热加载。
 
 ## 已有起点与本次增量

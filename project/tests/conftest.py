@@ -18,6 +18,7 @@ def settings(tmp_path, project_root) -> Settings:
     return Settings(
         data_dir=str(tmp_path / "data"),
         connectors_dir=str(project_root / "connectors"),
+        index_backend="keyword",
     )
 
 

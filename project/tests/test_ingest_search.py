@@ -1,6 +1,6 @@
 
 def test_txt_ingest_and_search_returns_source(runtime, tmp_path):
-    _, index, ingest, search = runtime
+    ingest, search = runtime.ingest, runtime.search
     path = tmp_path / "notes.txt"
     path.write_text("检索增强生成需要检索器和生成器。", encoding="utf-8")
 
@@ -16,7 +16,7 @@ def test_txt_ingest_and_search_returns_source(runtime, tmp_path):
 
 
 def test_markdown_extension_is_loaded_and_searchable(runtime, tmp_path):
-    _, index, ingest, search = runtime
+    ingest, search = runtime.ingest, runtime.search
     docs = tmp_path / "docs"
     docs.mkdir()
     (docs / "guide.md").write_text(
@@ -34,7 +34,7 @@ def test_markdown_extension_is_loaded_and_searchable(runtime, tmp_path):
 
 
 def test_reingest_replaces_document_chunks(runtime, tmp_path):
-    _, index, ingest, _ = runtime
+    index, ingest = runtime.index, runtime.ingest
     path = tmp_path / "note.txt"
     path.write_text("第一版内容，包含检索器。", encoding="utf-8")
     ingest.ingest("txt", str(path))

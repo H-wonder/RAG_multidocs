@@ -77,7 +77,7 @@ class IngestService:
 
             # 先删后插：同一 doc_id 重跑不会留下旧块
             self.index.remove_doc(document.doc_id)
-            self.index.add(chunks)
+            self.index.add(chunks, document)
             report.chunks += len(chunks)
             report.documents.append(
                 {
@@ -88,6 +88,7 @@ class IngestService:
                 }
             )
 
+        self.index.persist()
         return report
 
     def _chunk(self, document: Document):

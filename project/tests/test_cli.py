@@ -6,6 +6,7 @@ def _config(tmp_path, project_root):
     config = Settings(
         data_dir=str(tmp_path / "data"),
         connectors_dir=str(project_root / "connectors"),
+        index_backend="keyword",
     )
     path = tmp_path / "config.json"
     config.save(path)

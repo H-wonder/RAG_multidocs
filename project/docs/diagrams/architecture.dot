@@ -17,7 +17,7 @@ digraph architecture {
     search [label="SearchService"];
     registry [label="ConnectorRegistry"];
     chunker [label="Chunker\nTXT / Markdown / IR"];
-    index [label="KeywordIndex\nBM25（离线回退）"];
+    backend [label="IndexBackend\n统一接口"];
   }
 
   subgraph cluster_connectors {
@@ -30,9 +30,20 @@ digraph architecture {
     md [label="Markdown 目录\n独立扩展", fillcolor="#e2f0d9", color="#548235"];
   }
 
+  subgraph cluster_index {
+    label="索引后端";
+    fontname="Noto Sans CJK SC";
+    color="#ffd966";
+    style="rounded,dashed";
+    milvus_idx [label="MilvusIndex\ndense + BM25（主）", fillcolor="#fff2cc", color="#bf9000"];
+    keyword_idx [label="KeywordIndex\nBM25（回退）", fillcolor="#f2f2f2", color="#777777"];
+  }
+
+  embedder [label="Embedder\nbge / DashScope / hashing", fillcolor="#fce4d6", color="#c55a11"];
+  milvus [label="Docker Milvus\nmilvus-standalone:19530", fillcolor="#fce4d6", color="#c55a11"];
   docparse [label="docparse 子进程\n(docparse conda env)", fillcolor="#fce4d6", color="#c55a11"];
   ollama [label="Ollama\nXiaomi-OCR-0", fillcolor="#fce4d6", color="#c55a11"];
-  disk [label="index.json\n本地持久化", shape=cylinder, fillcolor="#ededed", color="#777777"];
+  disk [label="index.json\n关键词回退持久化", shape=cylinder, fillcolor="#ededed", color="#777777"];
 
   user -> cli [label="ingest / search"];
   cli -> ingest [label="ingest"];
@@ -42,9 +53,13 @@ digraph architecture {
   registry -> pdf;
   registry -> md [label="manifest"];
   ingest -> chunker;
-  chunker -> index [label="Chunk"];
-  search -> index [label="query"];
-  index -> disk [label="save/load"];
+  chunker -> backend [label="Chunk"];
+  search -> backend [label="query"];
+  backend -> milvus_idx [label="index_backend=milvus"];
+  backend -> keyword_idx [label="回退 / keyword"];
+  milvus_idx -> embedder [label="embed"];
+  milvus_idx -> milvus [label="pymilvus"];
+  keyword_idx -> disk [label="save/load"];
   pdf -> docparse [label="subprocess"];
   docparse -> ollama [label="loopback HTTP"];
 }

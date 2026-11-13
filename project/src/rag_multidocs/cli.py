@@ -5,6 +5,8 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from dataclasses import dataclass
+
 from .config import Settings
 from .connectors.pdf import DocparseOptions, PdfConnector
 from .connectors.txt import TxtConnector
@@ -23,7 +25,57 @@ def add_config(parser: argparse.ArgumentParser) -> None:
     )
 
 
-def build_runtime(settings: Settings):
+@dataclass
+class Runtime:
+    registry: ConnectorRegistry
+    index: object
+    ingest: IngestService
+    search: SearchService
+    backend: str
+    warning: str = ""
+
+
+def _keyword_index(settings: Settings) -> KeywordIndex:
+    if settings.index_file.exists():
+        return KeywordIndex.load(settings.index_file)
+    return KeywordIndex(path=settings.index_file)
+
+
+def _build_index(settings: Settings):
+    if settings.index_backend == "keyword":
+        return _keyword_index(settings), "keyword", ""
+
+    if settings.index_backend != "milvus":
+        raise ValueError(
+            f"未知 index_backend: {settings.index_backend}（可选 milvus/keyword）"
+        )
+
+    try:
+        from .embedding import build_embedder
+        from .index_milvus import MilvusIndex
+
+        index = MilvusIndex(
+            build_embedder(
+                settings.embed_backend,
+                model=settings.embed_model,
+                dim=settings.embed_dim,
+            ),
+            uri=settings.milvus_uri,
+            db_name=settings.milvus_db,
+            collection=settings.milvus_collection,
+            dense_weight=settings.milvus_dense_weight,
+            sparse_weight=settings.milvus_sparse_weight,
+        )
+        index.ensure_ready()
+        return index, "milvus", ""
+    except Exception as exc:
+        if not settings.fallback_to_keyword:
+            raise
+        warning = f"Milvus 后端不可用，已回退 keyword: {exc}"
+        return _keyword_index(settings), "keyword", warning
+
+
+def build_registry(settings: Settings) -> ConnectorRegistry:
     registry = ConnectorRegistry(
         plugins_dir=settings.connectors_dir,
         enabled=set(settings.enabled_connectors),
@@ -39,16 +91,19 @@ def build_runtime(settings: Settings):
             )
         )
     )
-    index = (
-        KeywordIndex.load(settings.index_file)
-        if settings.index_file.exists()
-        else KeywordIndex()
-    )
-    return (
-        registry,
-        index,
-        IngestService(registry, index),
-        SearchService(index),
+    return registry
+
+
+def build_runtime(settings: Settings) -> Runtime:
+    registry = build_registry(settings)
+    index, backend, warning = _build_index(settings)
+    return Runtime(
+        registry=registry,
+        index=index,
+        ingest=IngestService(registry, index),
+        search=SearchService(index),
+        backend=backend,
+        warning=warning,
     )
 
 
@@ -60,17 +115,17 @@ def _print_issues(issues) -> None:
 
 def cmd_ingest(args: argparse.Namespace) -> int:
     settings = Settings.load(args.config)
-    registry, index, service, _ = build_runtime(settings)
+    runtime = build_runtime(settings)
+    if runtime.warning:
+        print(f"[WARN] {runtime.warning}", file=sys.stderr)
     options = {"mode": args.mode} if args.mode else {}
-    report = service.ingest(args.source, args.path, options)
-
-    settings.index_file.parent.mkdir(parents=True, exist_ok=True)
-    index.save(settings.index_file)
+    report = runtime.ingest.ingest(args.source, args.path, options)
 
     if args.json:
         print(json.dumps(report.as_dict(), ensure_ascii=False, indent=2))
     else:
         print(f"connector: {report.connector}")
+        print(f"index: {runtime.backend}")
         print(f"documents: {len(report.documents)}")
         print(f"chunks: {report.chunks}")
         print(f"issues: {len(report.issues)}")
@@ -86,8 +141,10 @@ def cmd_ingest(args: argparse.Namespace) -> int:
 
 def cmd_search(args: argparse.Namespace) -> int:
     settings = Settings.load(args.config)
-    _, _, _, service = build_runtime(settings)
-    hits = service.search(args.query, top_k=args.top_k, doc_ids=args.doc_id)
+    runtime = build_runtime(settings)
+    if runtime.warning:
+        print(f"[WARN] {runtime.warning}", file=sys.stderr)
+    hits = runtime.search.search(args.query, top_k=args.top_k, doc_ids=args.doc_id)
 
     if args.json:
         print(json.dumps(hits, ensure_ascii=False, indent=2))
@@ -109,8 +166,10 @@ def cmd_search(args: argparse.Namespace) -> int:
 
 def cmd_docs(args: argparse.Namespace) -> int:
     settings = Settings.load(args.config)
-    _, index, _, _ = build_runtime(settings)
-    docs = index.list_docs()
+    runtime = build_runtime(settings)
+    if runtime.warning:
+        print(f"[WARN] {runtime.warning}", file=sys.stderr)
+    docs = runtime.index.list_docs()
     if args.json:
         print(json.dumps(docs, ensure_ascii=False, indent=2))
         return 0
@@ -127,7 +186,7 @@ def cmd_docs(args: argparse.Namespace) -> int:
 
 def cmd_connectors_list(args: argparse.Namespace) -> int:
     settings = Settings.load(args.config)
-    registry, _, _, _ = build_runtime(settings)
+    registry = build_registry(settings)
     enabled = set(settings.enabled_connectors)
     rows = []
     for name in registry.builtin_names():
@@ -156,7 +215,7 @@ def cmd_connectors_list(args: argparse.Namespace) -> int:
 
 def cmd_connectors_toggle(args: argparse.Namespace) -> int:
     settings = Settings.load(args.config)
-    registry, _, _, _ = build_runtime(settings)
+    registry = build_registry(settings)
     known = set(registry.all_names())
     if args.name not in known:
         print(
@@ -179,8 +238,12 @@ def cmd_connectors_toggle(args: argparse.Namespace) -> int:
 
 def cmd_stats(args: argparse.Namespace) -> int:
     settings = Settings.load(args.config)
-    _, index, _, _ = build_runtime(settings)
-    data = {**index.stats(), "index_file": str(settings.index_file)}
+    runtime = build_runtime(settings)
+    if runtime.warning:
+        print(f"[WARN] {runtime.warning}", file=sys.stderr)
+    data = {**runtime.index.stats(), "backend": runtime.backend}
+    if runtime.backend == "keyword":
+        data["index_file"] = str(settings.index_file)
     if args.json:
         print(json.dumps(data, ensure_ascii=False, indent=2))
     else:

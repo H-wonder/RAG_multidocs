@@ -4,14 +4,13 @@ from rag_multidocs.contracts import ConnectorConfig
 
 
 def test_missing_path_returns_structured_issue(runtime):
-    _, _, ingest, _ = runtime
-    report = ingest.ingest("txt", "/definitely/missing/path.txt")
+    report = runtime.ingest.ingest("txt", "/definitely/missing/path.txt")
     assert not report.ok
     assert report.issues[0].code == "FILE_NOT_FOUND"
 
 
 def test_empty_file_and_empty_directory(runtime, tmp_path):
-    _, _, ingest, _ = runtime
+    ingest = runtime.ingest
     empty = tmp_path / "empty.txt"
     empty.write_text("   \n", encoding="utf-8")
     report = ingest.ingest("txt", str(empty))
@@ -26,8 +25,7 @@ def test_empty_file_and_empty_directory(runtime, tmp_path):
 
 
 def test_unknown_connector_is_reported(runtime):
-    _, _, ingest, _ = runtime
-    report = ingest.ingest("does-not-exist", "x")
+    report = runtime.ingest.ingest("does-not-exist", "x")
     assert not report.ok
     assert report.issues[0].code == "CONNECTOR_NOT_FOUND"
 
@@ -37,7 +35,7 @@ def test_disabled_markdown_connector_does_not_break_txt(settings, tmp_path, proj
     txt.write_text("检索器负责取回段落。", encoding="utf-8")
 
     settings.enabled_connectors = ["txt", "pdf"]
-    _, _, ingest, _ = build_runtime(settings)
+    ingest = build_runtime(settings).ingest
 
     md_dir = tmp_path / "md"
     md_dir.mkdir()

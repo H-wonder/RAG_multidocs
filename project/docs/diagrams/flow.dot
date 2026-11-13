@@ -12,8 +12,8 @@ digraph flow {
   conn [label="Markdown Connector\n读取 .md 目录"];
   doc [label="Document\n统一模型"];
   ch [label="Chunker\nsection_path + chunk id"];
-  ix [label="KeywordIndex\n先删后插"];
-  save [label="保存 index.json"];
+  ix [label="IndexBackend\n先删后插"];
+  save [label="写 Milvus 或 index.json"];
   out [label="检索结果\nsource / page / section"];
 
   u -> cli [label="ingest --source markdown"];

@@ -17,6 +17,24 @@ class Settings:
     enabled_connectors: list[str] = field(
         default_factory=lambda: list(DEFAULT_CONNECTORS)
     )
+
+    # index backend: milvus (target) | keyword (offline fallback)
+    index_backend: str = "milvus"
+    fallback_to_keyword: bool = True
+
+    # Milvus
+    milvus_uri: str = "http://localhost:19530"
+    milvus_db: str = "rag"
+    milvus_collection: str = "rag_chunks"
+    milvus_dense_weight: float = 0.7
+    milvus_sparse_weight: float = 0.3
+
+    # embedding: hashing (CI/smoke) | local (bge) | dashscope
+    embed_backend: str = "local"
+    embed_model: str = "BAAI/bge-small-zh-v1.5"
+    embed_dim: int = 512
+
+    # docparse
     docparse_repo: str = ""
     docparse_python: str = ""
     docparse_mode: str = "auto"
@@ -41,6 +59,27 @@ class Settings:
         settings.connectors_dir = os.environ.get(
             "RAG_CONNECTORS_DIR", settings.connectors_dir
         )
+        settings.index_backend = os.environ.get(
+            "RAG_INDEX_BACKEND", settings.index_backend
+        )
+        fallback = os.environ.get("RAG_FALLBACK_KEYWORD")
+        if fallback is not None:
+            settings.fallback_to_keyword = fallback.lower() not in ("0", "false", "no")
+        settings.milvus_uri = os.environ.get("MILVUS_URI", settings.milvus_uri)
+        settings.milvus_db = os.environ.get("MILVUS_DB", settings.milvus_db)
+        settings.milvus_collection = os.environ.get(
+            "MILVUS_COLLECTION", settings.milvus_collection
+        )
+        if os.environ.get("MILVUS_DENSE_WEIGHT"):
+            settings.milvus_dense_weight = float(os.environ["MILVUS_DENSE_WEIGHT"])
+        if os.environ.get("MILVUS_SPARSE_WEIGHT"):
+            settings.milvus_sparse_weight = float(os.environ["MILVUS_SPARSE_WEIGHT"])
+        settings.embed_backend = os.environ.get(
+            "EMBED_BACKEND", settings.embed_backend
+        )
+        settings.embed_model = os.environ.get("EMBED_MODEL", settings.embed_model)
+        if os.environ.get("EMBED_DIM"):
+            settings.embed_dim = int(os.environ["EMBED_DIM"])
         settings.docparse_repo = os.environ.get(
             "DOCPARSE_REPO", settings.docparse_repo
         )

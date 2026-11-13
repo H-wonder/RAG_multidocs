@@ -1,9 +1,11 @@
 # RAG_multidocs
 
+![CI](https://github.com/H-wonder/RAG_multidocs/actions/workflows/ci.yml/badge.svg)
+
 课程大作业项目：**RAG Connector Platform——插件化多模态文档解析与检索**。
 
 当前阶段：可运行的项目骨架已完成——CLI、Connector 注册、TXT/Markdown/PDF 接入、
-BM25 检索、测试与 CI 已落地；最终发行物与成员协作记录待补。
+Milvus 混合检索 + BM25 回退、测试与 CI 已落地；最终发行物与成员协作记录待补。
 
 ## 目录
 
@@ -22,13 +24,16 @@ BM25 检索、测试与 CI 已落地；最终发行物与成员协作记录待�
 ## 快速开始
 
 ```bash
+# 平台运行在 rag conda 环境；docparse 由子进程调用
+conda activate rag
 cd project
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -e ".[dev]"
+pip install -e ".[dev,milvus]"
 cp config.example.json config.json
 
-# TXT 导入 + 检索（带来源）
+# 启动 Milvus（首次部署见环境文档）
+docker start milvus-standalone
+
+# TXT 导入 + Milvus 混合检索（带来源）
 rag-cli ingest --source txt --path samples/notes.txt
 rag-cli search "检索器如何训练"
 
@@ -38,8 +43,18 @@ rag-cli search "表格"
 rag-cli connectors list
 
 # 测试与检查
-pytest -q
+pytest -q -m "not integration"
 ruff check src tests connectors
+MILVUS_URI=http://localhost:19530 pytest -q -m integration
+```
+
+没有 conda 时可以用 venv 跑核心 + 关键词回退：
+
+```bash
+cd project
+python3 -m venv .venv && source .venv/bin/activate
+pip install -e ".[dev]"
+RAG_INDEX_BACKEND=keyword rag-cli ingest --source txt --path samples/notes.txt
 ```
 
 PDF/扫描件解析需要 docparse 环境；完整环境步骤见
@@ -60,8 +75,8 @@ PDF/扫描件解析需要 docparse 环境；完整环境步骤见
 
 本项目基于作者此前的多模态文档入库工程（DocFlow）演化，复用/改编了其中的
 文档模型、切块、去重、清单、Milvus 检索和 docparse 解析代码；本次新增了
-可运行 CLI、Connector 契约与注册、TXT/Markdown Connector、BM25 索引、测试与 CI、
-设计文档和 release 模板。
+可运行 CLI、Connector 契约与注册、TXT/Markdown Connector、Milvus 混合检索、
+BM25 关键词回退、集成测试与 CI、设计文档和 release 模板。
 
 来源、许可与第三方声明见
 [`已有资源/文档/06-来源许可与依赖.md`](已有资源/文档/06-来源许可与依赖.md)。

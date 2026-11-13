@@ -28,7 +28,7 @@ PDF 论文和扫描件中。直接按文件翻找效率低；把资料简单拼�
 系统完成：
   Connector 读取目录 → Document（doc_id/source/title/正文）
   → Chunker 切块（section_path/page/确定性 chunk id）
-  → KeywordIndex 建立 BM25 索引并写入 index.json
+  → IndexBackend：MilvusIndex（dense+BM25，主）/ KeywordIndex（回退）
   → 检索返回 text + source + page + section_path
 
 用户得到：
@@ -51,7 +51,9 @@ PDF 论文和扫描件中。直接按文件翻找效率低；把资料简单拼�
 - 统一 `Document` / `Chunk` 模型；
 - 内置 TXT Connector（单文件或目录）；
 - 内置 PDF/扫描件/Office Connector（通过外部 docparse 子进程，可选）；
-- BM25 关键词索引、检索、本地持久化；
+- Milvus 混合检索（dense 向量 + 服务端 BM25），命中带来源；
+- BM25 关键词索引与本地持久化，作为 Milvus 不可用时的回退；
+- 嵌入后端：本地 bge-small-zh / DashScope / hashing（CI 冒烟）；
 - Connector 注册表（内置 + manifest/adapter 插件）；
 - 独立 Markdown 目录 Connector；
 - CLI：`ingest/search/docs/connectors/stats`；
@@ -62,7 +64,7 @@ PDF 论文和扫描件中。直接按文件翻找效率低；把资料简单拼�
 - 用户登录、权限、多租户；
 - 爬虫集群、插件市场、热加载；
 - 生成式回答、复杂 Agent、模型评测；
-- 把向量数据库/真实模型作为运行必需项；
+- 把 Milvus/嵌入模型作为硬依赖（不可用时回退关键词）；
 - 完整教务/校园业务系统。
 
 ## 2. 总体架构
@@ -76,7 +78,10 @@ CLI ──► Core（IngestService / SearchService / ConnectorRegistry）
              │
              ├── 内置 Connector：TXT、PDF/扫描件/Office
              ├── 独立扩展：Markdown 目录（manifest + adapter）
-             └── KeywordIndex（BM25，本地 index.json）
+             └── IndexBackend
+                   ├── MilvusIndex（dense + BM25，主）──► Docker Milvus
+                   │        └── Embedder（bge / DashScope / hashing）
+                   └── KeywordIndex（BM25，本地 index.json，回退）
 
 PDF Connector ──子进程──► docparse conda env ──loopback──► Ollama
 ```
@@ -90,7 +95,10 @@ PDF Connector ──子进程──► docparse conda env ──loopback──�
 | `contracts.py` | `ConnectorConfig/Result/Issue/Error` 公开契约 | 无 |
 | `model.py` | `Document`、`Chunk`、稳定 id | 标准库 |
 | `chunking.py` | TXT/Markdown/IR 切块 | `model` |
-| `index.py` | BM25 索引、持久化、文档汇总 | `model` |
+| `index.py` | KeywordIndex：BM25、持久化、文档汇总 | `model` |
+| `index_milvus.py` | MilvusIndex：dense+BM25、按 doc 先删后插 | `milvus_store`、`embedding` |
+| `milvus_store.py` | Milvus schema/集合/混合检索封装 | pymilvus（可选） |
+| `embedding.py` | Embedder 协议与 bge/DashScope/hashing 实现 | sentence-transformers / 标准库 |
 | `connectors/txt.py` | 内置 TXT 接入 | 契约、`model` |
 | `connectors/pdf.py` | 内置 docparse 子进程接入 | 契约、`model` |
 | `connectors/connector_markdown/` | 独立 Markdown 扩展 | 契约、`model` |
@@ -100,7 +108,8 @@ PDF Connector ──子进程──► docparse conda env ──loopback──�
 - 核心只依赖 `Connector` 契约和 `Document`/`Chunk` 模型；
 - 核心**不**按 `source_type` 写分支，只按 Connector 注册名查找；
 - 独立扩展只依赖 `rag_multidocs.contracts` 和 `rag_multidocs.model`，
-  不 import `IngestService`、`CLI`、`KeywordIndex` 的内部实现；
+  不 import `IngestService`、`CLI`、索引后端的内部实现；
+- 索引后端通过 `IndexBackend` 统一接口注入，Core 不按 Milvus/keyword 分支；
 - PDF 解析放在外部进程，paddle/torch 等重依赖不进入核心环境；
 - 新增数据源只需增加插件目录和 manifest，不修改 `src/rag_multidocs/`。
 
@@ -180,13 +189,58 @@ class Connector(Protocol):
 
 ### 3.3 索引与检索
 
+Core 只依赖统一的 `IndexBackend` 接口：
+
+```python
+class IndexBackend(Protocol):
+    name: str
+    def ensure_ready(self) -> None: ...
+    def add(self, chunks, document=None) -> int: ...
+    def remove_doc(self, doc_id: str) -> int: ...
+    def search(self, query, top_k=5, doc_ids=None) -> list[dict]: ...
+    def list_docs(self) -> list[dict]: ...
+    def stats(self) -> dict: ...
+    def persist(self) -> None: ...
+    def close(self) -> None: ...
+```
+
+#### MilvusIndex（主检索）
+
+- 嵌入：`Embedder` 协议；默认本地 `bge-small-zh-v1.5`（512 维），
+  可选 DashScope `text-embedding-v4`（1024 维）或 `hashing`（CI/冒烟）；
+- 写入：按 `doc_id` 先删后插；chunk 的向量输入带 `section_path` 前缀，
+  存库文本仍是原文；
+- 集合：`id/doc_id/version/text/source/page/page_end/section_path/bbox/sha256`
+  + `dense`（HNSW/IP）+ `sparse`（服务端 BM25）；
+- 检索：dense + BM25，`WeightedRanker(0.7,0.3)` 或 RRF；支持按 `doc_id` 过滤；
+- 来源：命中返回 `source/page/section_path/content_type`，可选 bbox；
+- 持久化：由 Milvus/Docker 卷负责，不写 `index.json`。
+
+#### KeywordIndex（离线回退）
+
 `KeywordIndex` 使用 BM25（k1=1.2, b=0.75）：
 
 - 英文按小写词，中文按单字 + 连续中文串的二元组；
 - 章节路径也参与索引，正文没写“切块”时仍可通过 `section_path` 召回；
 - 文档长度参与归一化，短块不会因为词频高而绝对占优；
-- `search(query, top_k, doc_ids)` 返回 `score/doc_id/source/text/page/section_path/content_type`；
-- `save/load` 使用 JSON，适合课程规模；`list_docs` 汇总已索引文档。
+- `save/load` 使用 JSON；`persist()` 由 IngestService 调用；
+- 当 `index_backend=milvus` 但 Milvus/嵌入不可用，且
+  `fallback_to_keyword=true` 时，CLI 打印 WARN 并切到该后端。
+
+命中结构统一：
+
+```json
+{
+  "chunk_id": "...",
+  "score": 0.032,
+  "doc_id": "...",
+  "source": "guide.md",
+  "text": "...",
+  "page": 3,
+  "section_path": "切块策略 > 表格",
+  "content_type": "text"
+}
+```
 
 ### 3.4 CLI 适配器
 
@@ -269,8 +323,10 @@ rag-cli ingest --source txt --path samples/notes.txt   # 核心仍可用
 4. 扩展返回 `Document`；核心不关心它来自哪种文件格式；
 5. `Chunker` 按标题层级生成 `section_path`，按 token 预算装箱，生成确定性 id；
 6. `IngestService` 先 `remove_doc(doc_id)` 再 `add(chunks)`，重跑不产生重复；
-7. 索引保存到 `index.json`；
-8. `search` 读取同一索引，返回命中及来源。
+7. 写入 `IndexBackend`：默认 `MilvusIndex`（按 doc_id 先删后插、生成 dense + BM25）；
+   若 Milvus/嵌入不可用且允许回退，则写 `KeywordIndex` 并落盘 `index.json`；
+8. `search` 调用同一后端：Milvus 走 dense+BM25 混合检索，回退走 BM25，
+   两者都返回 `source/page/section_path`。
 
 **失败分支**：路径不存在时 Connector 返回 `FILE_NOT_FOUND`，`IngestService`
 不抛异常，CLI 打印错误并以退出码 2 结束；其他已成功文档不受影响。PDF 解析器
@@ -278,7 +334,11 @@ rag-cli ingest --source txt --path samples/notes.txt   # 核心仍可用
 
 ## 6. 数据与配置
 
-### 6.1 索引文件
+### 6.1 索引存储
+
+- `MilvusIndex`：数据在 Docker Milvus 的卷里，集合维度必须与嵌入模型一致；
+  同一 `doc_id` 重跑先删后插，不产生重复向量。
+- `KeywordIndex`：回退时写 `data/index.json`，结构如下：
 
 ```json
 {
@@ -302,21 +362,30 @@ rag-cli ingest --source txt --path samples/notes.txt   # 核心仍可用
 
 | 字段 | 默认 | 说明 |
 | --- | --- | --- |
-| `data_dir` | `data` | 索引落盘目录 |
+| `data_dir` | `data` | 关键词回退索引落盘目录 |
 | `connectors_dir` | `connectors` | 插件目录 |
 | `enabled_connectors` | txt/pdf/connector.markdown | 启用的 Connector |
+| `index_backend` | `milvus` | `milvus`（主）或 `keyword`（离线） |
+| `fallback_to_keyword` | `true` | Milvus 不可用时是否回退 |
+| `milvus_uri` | `http://localhost:19530` | Milvus 地址 |
+| `milvus_db` / `milvus_collection` | `rag` / `rag_chunks` | 数据库/集合 |
+| `milvus_dense_weight` / `milvus_sparse_weight` | 0.7 / 0.3 | 融合权重 |
+| `embed_backend` | `local` | `local`/`dashscope`/`hashing` |
+| `embed_model` / `embed_dim` | bge-small-zh / 512 | 与集合维度一致 |
 | `docparse_repo` | 空 | 含 `docparse/` 包的目录 |
 | `docparse_python` | 空（用当前 Python） | docparse 环境 Python |
 | `docparse_mode` | `auto` | auto/page/region |
 | `docparse_timeout_s` | 1800 | 单文件超时 |
 
-环境变量 `RAG_DATA_DIR`、`RAG_CONNECTORS_DIR`、`DOCPARSE_REPO`、
-`DOCPARSE_PYTHON`、`DOCPARSE_MODE` 可覆盖配置。密钥只从环境注入，不写入仓库。
+环境变量 `RAG_DATA_DIR`、`RAG_CONNECTORS_DIR`、`RAG_INDEX_BACKEND`、
+`RAG_FALLBACK_KEYWORD`、`MILVUS_URI/DB/COLLECTION`、`EMBED_BACKEND/MODEL/DIM`、
+`DOCPARSE_REPO/PYTHON/MODE` 可覆盖配置。`DASHSCOPE_API_KEY` 只从环境注入。
 
 ### 6.3 敏感信息
 
-- 项目核心不需要任何密钥；
-- docparse/Ollama/Milvus 配置通过环境变量或本地 `config.json` 注入；
+- 项目核心不需要密钥；本地 bge 嵌入也不需要 Key；
+- DashScope 嵌入/重排 Key、docparse/Ollama/Milvus 配置通过环境变量或本地
+  `config.json` 注入；
 - `.gitignore` 排除 `.env`、`config.json`、`data/`、缓存和模型文件；
 - 日志不打印正文全文和密钥。
 
@@ -334,12 +403,18 @@ rag-cli ingest --source txt --path samples/notes.txt   # 核心仍可用
 | 契约 | docparse IR 映射 | 页码、章节、表格块正确 |
 | CLI | `ingest/search/docs/connectors` | 输出与退出码 |
 | 幂等 | 同一文档重复导入 | 块数不翻倍 |
+| 回退 | Milvus 不可用 | 自动切 keyword，打印 WARN，TXT 仍可检索 |
+| Milvus 集成 | 写入 → dense+BM25 检索 | `@pytest.mark.integration`，命中带 source |
 
 ### 7.2 CI 与静态检查
 
-- 仓库根 `.github/workflows/ci.yml`：Python 3.11，`pip install -e ".[dev]"`，
-  `ruff check src tests connectors`，`pytest -q`；
-- 测试不依赖 Milvus、Ollama 或网络；PDF 解析器不可用的错误路径也纳入测试；
+- 仓库根 `.github/workflows/ci.yml`：
+  - **unit job**：Python 3.11，`pip install -e ".[dev]"`，
+    `ruff check src tests connectors`，`pytest -q -m "not integration"`；
+  - **integration job**：Docker 起 `milvusdb/milvus:v2.5.6`，
+    `pip install -e ".[dev,milvus]"`，`MILVUS_URI=... pytest -q -m integration`；
+- unit 测试不依赖 Milvus、Ollama 或网络；PDF 解析器不可用的错误路径也纳入测试；
+- 集成测试用 `HashingEmbedder`，不下载模型，只验证写入/检索链路；
 - 风格检查使用 ruff（仅 E4/E7/E9/F，避免无关格式噪音）。
 
 ### 7.3 故意引入错误演示
@@ -354,24 +429,27 @@ rag-cli ingest --source txt --path samples/notes.txt   # 核心仍可用
 
 | 选择 | 理由 | 代价/替代方案 |
 | --- | --- | --- |
-| 关键词 BM25 作为默认索引 | 无外部依赖、可复现、测试稳定；满足“简单关键词索引”要求 | 同义改写召回弱；向量检索作为后续可选 |
+| Milvus 混合检索为主 + 关键词回退 | 语义召回 + 词面精确匹配；Milvus 故障时仍可演示 | 多一个 Docker 服务；维度/模型需与集合一致；替代方案纯 BM25 更简单但召回弱 |
+| 嵌入模型可替换（bge/DashScope/hashing） | 本地离线、远程效果、CI 冒烟各有用途 | 换模型必须新建集合；维度不能混用 |
+| 关键词 BM25 保留为回退 | 无外部依赖、可复现、测试稳定 | 回退结果语义能力弱，需在输出中说明 backend |
 | Connector 用 manifest + adapter | 扩展可独立目录、独立构建；核心不按类型分支 | 需要维护 manifest 契约；替代方案 setuptools entry points 更“标准”但课程环境配置更重 |
 | PDF 解析放外部 docparse 子进程 | paddle/Ollama 依赖重，隔离失败；核心保持轻量 | 部署多一个环境；替代方案进程内 import 会把重依赖带入核心 |
-| 索引存本地 JSON | 课程规模足够、可检查、易演示 | 大规模并发/增量更新不适合；未来可换 SQLite/向量库 |
+| 关键词回退索引存本地 JSON | 课程规模足够、可检查、易演示 | 大规模并发/增量更新不适合；Milvus 主路径不受此限制 |
 | 不生成回答 | 课程重点是接入—索引—检索闭环；检索证据可核对 | 后续可把命中交给 LLM，但必须区分证据与生成 |
 
 ### 8.2 已知限制
 
-- 中文分词为单字 + 二元组，未做领域词典；
+- 中文关键词回退分词为单字 + 二元组，未做领域词典；
 - PDF/扫描件依赖 docparse 与 Ollama，未配置时 PDF 不可用；
-- 索引为单文件，未实现并发写锁与大规模增量；
+- Milvus 需要 Docker 和 2.5+；嵌入模型维度必须与集合一致；
+- 未实现查询扩写/重排；未做多租户与并发写锁；
 - Markdown 表格按整块保留，未做复杂合并单元格还原；
 - 未实现插件版本兼容矩阵；不兼容变更需在文档说明。
 
 ### 8.3 后续计划
 
 1. 增加 HTML Connector（与 Markdown 二选一即可，不重复造第二套扩展机制）；
-2. 可选接入 Milvus + 本地嵌入，保留关键词回退与来源字段；
+2. 增加重排/查询扩写（可选），保留关键词回退与来源字段；
 3. 增加增量清单（SQLite）与 SimHash 去重；
 4. 增加 Web 适配器（FastAPI + 单页检索），复用同一 Core；
 5. 增加更多真实课程资料样例与回归测试。

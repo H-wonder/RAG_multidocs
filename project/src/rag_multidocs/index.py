@@ -42,9 +42,12 @@ def tokenize(text: str) -> list[str]:
 
 
 class KeywordIndex:
-    def __init__(self, k1: float = 1.2, b: float = 0.75):
+    name = "keyword"
+
+    def __init__(self, k1: float = 1.2, b: float = 0.75, path: str | Path | None = None):
         self.k1 = k1
         self.b = b
+        self.path = Path(path) if path else None
         self.chunks: dict[str, dict] = {}
         self.postings: dict[str, dict[str, int]] = {}
         self.doc_len: dict[str, int] = {}
@@ -57,8 +60,15 @@ class KeywordIndex:
             return chunk.as_dict()
         return dict(chunk)
 
-    def add(self, chunks: Iterable[Chunk | dict]) -> int:
-        """加入一批块；同 id 的块会覆盖旧内容。返回实际加入数量。"""
+    def add(
+        self,
+        chunks: Iterable[Chunk | dict],
+        document=None,
+    ) -> int:
+        """加入一批块；同 id 的块会覆盖旧内容。返回实际加入数量。
+
+        ``document`` 仅为与 Milvus 后端保持同一接口；关键词索引不需要它。
+        """
         added = 0
         for chunk in chunks:
             data = self._as_dict(chunk)
@@ -174,12 +184,20 @@ class KeywordIndex:
         out.write_text(
             json.dumps(self.to_dict(), ensure_ascii=False), encoding="utf-8"
         )
+        self.path = out
         return out
+
+    def persist(self) -> None:
+        if self.path is not None:
+            self.save(self.path)
+
+    def close(self) -> None:
+        return None
 
     @classmethod
     def load(cls, path: str | Path) -> "KeywordIndex":
         data = json.loads(Path(path).read_text(encoding="utf-8"))
-        index = cls(k1=data.get("k1", 1.2), b=data.get("b", 0.75))
+        index = cls(k1=data.get("k1", 1.2), b=data.get("b", 0.75), path=path)
         index.chunks = dict(data.get("chunks") or {})
         index.postings = {
             token: dict(posting)
@@ -208,6 +226,7 @@ class KeywordIndex:
 
     def stats(self) -> dict:
         return {
+            "backend": self.name,
             "chunks": len(self.chunks),
             "tokens": len(self.postings),
             "docs": len({data.get("doc_id") for data in self.chunks.values()}),
