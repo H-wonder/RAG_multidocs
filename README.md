@@ -5,7 +5,7 @@
 课程大作业项目：**RAG Connector Platform——插件化多模态文档解析与检索**。
 
 当前阶段：可运行的项目骨架已完成——CLI、Connector 注册、TXT/Markdown/PDF 接入、
-Milvus 混合检索 + BM25 回退、测试与 CI 已落地；最终发行物与成员协作记录待补。
+Milvus 混合检索 + BM25 回退、检索增强问答、测试与 CI 已落地；最终发行物与成员协作记录待补。
 
 ## 目录
 
@@ -41,6 +41,10 @@ rag-cli search "检索器如何训练"
 rag-cli ingest --source connector.markdown --path samples/markdown
 rag-cli search "表格"
 rag-cli connectors list
+
+# 检索增强问答（API Key 只从环境变量读取）
+export DEEPSEEK_API_KEY=...
+rag-cli ask "检索器如何训练" --provider deepseek --model deepseek-chat
 
 # 测试与检查
 pytest -q -m "not integration"

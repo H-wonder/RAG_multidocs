@@ -15,6 +15,8 @@
 | `src/rag_multidocs/milvus_store.py` | `任务二/docflow/services/rag_service.py` | 抽成可嵌入的 Milvus 混合检索类 |
 | `src/rag_multidocs/embedding.py` | `rag_service.py` 的嵌入函数 | Embedder 协议 + bge/DashScope/hashing |
 | `src/rag_multidocs/connectors/txt.py` | 新写 | 内置 TXT Connector |
+| `src/rag_multidocs/providers.py` | 新写 | embedding/chat provider 预设与环境变量 Key 读取 |
+| `src/rag_multidocs/llm.py` | 新写 | OpenAI 兼容 Chat、证据 prompt、引用式答案 |
 
 本次新增的 CLI、TXT/Markdown Connector、错误模型、测试、CI、设计文档和
 release 模板不计入既有代码。

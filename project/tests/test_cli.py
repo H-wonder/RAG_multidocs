@@ -63,3 +63,105 @@ def test_cli_can_disable_and_enable_connector(tmp_path, project_root, capsys):
     assert main(["connectors", "enable", "connector.markdown", "--config", str(config)]) == 0
     settings = Settings.load(config)
     assert "connector.markdown" in settings.enabled_connectors
+
+
+def test_cli_ask_without_generation_returns_hits(tmp_path, project_root, capsys):
+    config = _config(tmp_path, project_root)
+    txt = tmp_path / "notes.txt"
+    txt.write_text("检索增强生成需要检索器和生成器。", encoding="utf-8")
+    assert main(["ingest", "--source", "txt", "--path", str(txt), "--config", str(config)]) == 0
+    capsys.readouterr()
+
+    code = main(["ask", "检索器", "--no-generate", "--config", str(config)])
+    out = capsys.readouterr().out
+    assert code == 0
+    assert "notes.txt" in out
+
+
+def test_cli_ask_with_fake_chat_model(tmp_path, project_root, capsys, monkeypatch):
+    config = _config(tmp_path, project_root)
+    txt = tmp_path / "notes.txt"
+    txt.write_text("检索增强生成需要检索器和生成器。", encoding="utf-8")
+    assert main(["ingest", "--source", "txt", "--path", str(txt), "--config", str(config)]) == 0
+    capsys.readouterr()
+
+    class FakeChat:
+        model = "fake-chat"
+
+        def complete(self, messages):
+            return "检索器负责取回段落 [1]。"
+
+    monkeypatch.setattr(
+        "rag_multidocs.cli.build_chat_model",
+        lambda *args, **kwargs: FakeChat(),
+    )
+    code = main(
+        ["ask", "检索器", "--provider", "deepseek", "--config", str(config)]
+    )
+    out = capsys.readouterr().out
+    assert code == 0
+    assert "答案" in out and "[1]" in out
+    assert "notes.txt" in out
+
+
+def test_cli_models_list_and_use(tmp_path, project_root, capsys):
+    config = _config(tmp_path, project_root)
+
+    assert main(["models", "list", "--config", str(config)]) == 0
+    out = capsys.readouterr().out
+    assert "deepseek" in out and "local" in out
+
+    code = main(
+        [
+            "models",
+            "use",
+            "--kind",
+            "chat",
+            "--provider",
+            "deepseek",
+            "--model",
+            "deepseek-chat",
+            "--config",
+            str(config),
+        ]
+    )
+    assert code == 0
+    settings = Settings.load(config)
+    assert settings.chat_provider == "deepseek"
+    assert settings.chat_model == "deepseek-chat"
+
+
+def test_cli_ask_requires_chat_provider(tmp_path, project_root, capsys):
+    config = _config(tmp_path, project_root)
+    txt = tmp_path / "notes.txt"
+    txt.write_text("检索增强生成需要检索器和生成器。", encoding="utf-8")
+    assert main(["ingest", "--source", "txt", "--path", str(txt), "--config", str(config)]) == 0
+    capsys.readouterr()
+
+    code = main(["ask", "检索器", "--config", str(config)])
+    captured = capsys.readouterr()
+    assert code == 2
+    assert "CONFIG_ERROR" in captured.err
+    assert "notes.txt" in captured.out
+
+
+def test_models_use_embedding_resets_provider_defaults(tmp_path, project_root, capsys):
+    config = _config(tmp_path, project_root)
+    settings = Settings.load(config)
+    settings.embed_backend = "local"
+    settings.embed_model = "BAAI/bge-small-zh-v1.5"
+    settings.embed_dim = 512
+    settings.save(config)
+
+    code = main(
+        [
+            "models", "use", "--kind", "embedding",
+            "--provider", "dashscope", "--model", "text-embedding-v4",
+            "--dim", "1024", "--config", str(config),
+        ]
+    )
+    assert code == 0
+    settings = Settings.load(config)
+    assert settings.embed_backend == "dashscope"
+    assert settings.embed_model == "text-embedding-v4"
+    assert settings.embed_dim == 1024

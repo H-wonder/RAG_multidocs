@@ -39,7 +39,9 @@ digraph architecture {
     keyword_idx [label="KeywordIndex\nBM25（回退）", fillcolor="#f2f2f2", color="#777777"];
   }
 
-  embedder [label="Embedder\nbge / DashScope / hashing", fillcolor="#fce4d6", color="#c55a11"];
+  qa [label="RagQA\n证据 prompt + 引用", fillcolor="#fff2cc", color="#bf9000"];
+  chat [label="ChatModel\nDeepSeek / DashScope / OpenAI / Ollama", fillcolor="#fce4d6", color="#c55a11"];
+  embedder [label="Embedder\nbge / DashScope / OpenAI / Ollama / hashing", fillcolor="#fce4d6", color="#c55a11"];
   milvus [label="Docker Milvus\nmilvus-standalone:19530", fillcolor="#fce4d6", color="#c55a11"];
   docparse [label="docparse 子进程\n(docparse conda env)", fillcolor="#fce4d6", color="#c55a11"];
   ollama [label="Ollama\nXiaomi-OCR-0", fillcolor="#fce4d6", color="#c55a11"];
@@ -47,7 +49,9 @@ digraph architecture {
 
   user -> cli [label="ingest / search"];
   cli -> ingest [label="ingest"];
-  cli -> search [label="search"];
+  cli -> search [label="search / ask"];
+  search -> qa [label="top-k evidence"];
+  qa -> chat [label="answer + [n] citations"];
   ingest -> registry [label="load(name)"];
   registry -> txt;
   registry -> pdf;

@@ -19,10 +19,11 @@
 **输入 → 处理 → 输出**：
 
 ```text
-TXT / Markdown / PDF ──► Connector ──► Document ──► Chunk ──► BM25 索引
-                                                                  │
+TXT / Markdown / PDF ──► Connector ──► Document ──► Chunk ──► Milvus（dense+BM25）
+                                                                  │          或 keyword 回退
 用户查询 ─────────────────────────────────────────────────────────┘
-        └──► 命中文本 + source + page + section_path（可选 bbox）
+        └──► 命中文本 + source + page + section_path
+              └──►（可选）LLM 依据命中生成答案 + [编号] 引用
 ```
 
 **基础能力（内置）**：
@@ -32,6 +33,8 @@ TXT / Markdown / PDF ──► Connector ──► Document ──► Chunk ─�
 - 内置 PDF/扫描件/Office Connector（通过 docparse 子进程，可选）；
 - Milvus 混合检索：dense 向量 + 服务端 BM25，命中带 `source/page/section_path`；
 - 本地 BM25 关键词索引：Milvus 不可用时的离线回退；
+- 检索增强问答：`rag-cli ask` 把命中证据交给 OpenAI 兼容 LLM，输出答案 + 引用；
+- 模型选择：embedding/chat 均支持 provider + model 配置/命令行覆盖；
 - 接入失败的结构化错误（`FILE_NOT_FOUND`、`EMPTY_SOURCE`、`PARSE_ERROR` 等）。
 
 **独立扩展**：
@@ -44,7 +47,7 @@ TXT / Markdown / PDF ──► Connector ──► Document ──► Chunk ─�
 
 - 不做用户登录、权限、多租户；
 - 不做爬虫集群、插件市场、热加载；
-- 不做生成式回答（只做可核对的检索证据）；
+- 不做多轮对话记忆、Agent 工具调用或复杂评测；生成答案必须附带检索引用；
 - Milvus/嵌入模型不是硬依赖：不可用时回退关键词索引，保证离线闭环。
 
 ## 快速开始
@@ -97,8 +100,11 @@ cp config.example.json config.json
 | `fallback_to_keyword` | `true` | Milvus 不可用时自动回退 |
 | `milvus_uri` | `http://localhost:19530` | Milvus 地址 |
 | `milvus_db` / `milvus_collection` | `rag` / `rag_chunks` | 数据库/集合 |
-| `embed_backend` | `local` | `local`（bge）/`dashscope`/`hashing`（CI） |
-| `embed_model` / `embed_dim` | bge-small-zh / 512 | 必须与集合维度一致 |
+| `embed_backend` | `local` | `local`/`hashing`/`dashscope`/`openai`/`ollama` |
+| `embed_model` / `embed_dim` | 空 / 0 | 空/0 表示用 provider 默认；必须与集合维度一致 |
+| `chat_provider` | 空 | `deepseek`/`dashscope`/`openai`/`ollama`；空表示不启用问答 |
+| `chat_model` | 空 | 空表示用 provider 默认模型 |
+| `rag_top_k` | 5 | 问答检索证据条数 |
 | `docparse_repo` / `docparse_python` | 空 | PDF 多模态解析 |
 
 ### 3. 导入与检索
@@ -120,7 +126,41 @@ rag-cli connectors list
 rag-cli stats
 ```
 
-示例输出：
+### 4. 检索增强问答
+
+API Key 只从环境变量读取，不写入配置：
+
+```bash
+# 1. 查看可用 provider 和当前选择
+rag-cli models list
+
+# 2. 只返回检索证据，不调用 LLM
+rag-cli ask "检索器如何训练" --no-generate
+
+# 3. 用 DeepSeek 生成答案 + 引用
+export DEEPSEEK_API_KEY=...
+rag-cli ask "检索器如何训练" --provider deepseek --model deepseek-chat
+
+# 4. 持久选择 chat provider/model（不保存 Key）
+rag-cli models use --kind chat --provider deepseek --model deepseek-chat
+
+# 5. 换 embedding provider（会提示新建 Milvus 集合）
+rag-cli models use --kind embedding --provider dashscope --model text-embedding-v4 --dim 1024
+```
+
+输出包含答案和来源：
+
+```text
+答案：
+检索器通过联合优化或固定生成器训练 [1]。
+来源：
+[1] notes.txt p0
+```
+
+API Key 环境变量：`DEEPSEEK_API_KEY`、`DASHSCOPE_API_KEY`、`OPENAI_API_KEY`；
+Ollama 不需要 Key。Key 不写入 `config.json`。
+
+示例检索输出：
 
 ```text
 [1] 6.2538  chunking.md p0  §切块策略 > 按结构切 > 表格
@@ -132,8 +172,9 @@ rag-cli stats
 ### 4. 测试
 
 ```bash
-pytest -q
+pytest -q -m "not integration"       # 离线单元测试
 ruff check src tests connectors
+MILVUS_URI=http://localhost:19530 pytest -q -m integration
 ```
 
 ## 核心与扩展
@@ -147,8 +188,11 @@ CLI ──► Core（IngestService / SearchService / ConnectorRegistry）
              └── 独立扩展：Markdown 目录（connectors/connector_markdown）
              │
              ├── MilvusIndex（dense + BM25，主）
-             │     └── Embedder（bge / DashScope / hashing）
+             │     └── Embedder（bge / DashScope / OpenAI / Ollama / hashing）
              └── KeywordIndex（BM25，本地 index.json，回退）
+
+CLI ask ──► SearchService ──► RagQA（证据 + 引用）──► ChatModel
+                                                  （DeepSeek/DashScope/OpenAI/Ollama）
 ```
 
 ### 独立扩展如何接入
@@ -194,7 +238,9 @@ git diff --stat -- src/rag_multidocs
 | PDF 映射 | docparse IR → Document/Chunk，断言页码、章节、表格块 |
 | 回退 | Milvus 不可用时自动回退 keyword，并打印 WARN |
 | Milvus 集成 | `@pytest.mark.integration`：写入 → dense+BM25 检索 → 来源断言 |
-| CLI | `ingest/search/docs/connectors` 的输出与退出码 |
+| 问答 | FakeChat：证据拼入 prompt、答案带引用、无证据不调用模型 |
+| 模型选择 | provider 列表、环境变量 Key 检查、`models use` 持久化 |
+| CLI | `ingest/search/ask/models/docs/connectors` 的输出与退出码 |
 
 本地命令：
 
@@ -244,6 +290,7 @@ MIT 简洁、便于课程展示与后续复用；第三方/来源代码的许可
   `CONNECTOR_UNAVAILABLE`，不影响 TXT/Markdown；
 - 中文分词为单字 + 二元组，未做领域词典；
 - 关键词回退索引为本地 JSON，适合课程规模；Milvus 主路径由 Docker 卷持久化；
+- 生成式问答需要外部 LLM API 或本地 Ollama；未实现流式输出、多轮记忆；
 - 未实现用户系统、权限、在线编辑、插件市场或热加载。
 
 ## 已有起点与本次增量

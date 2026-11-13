@@ -16,12 +16,13 @@ from __future__ import annotations
 import hashlib
 import json
 import math
-import os
 import re
 import time
 import urllib.error
 import urllib.request
 from typing import Protocol, runtime_checkable
+
+from .providers import api_key, embedding_provider
 
 _TOKEN_RE = re.compile(r"[A-Za-z0-9_]+|[一-鿿]")
 
@@ -89,7 +90,12 @@ class OpenAICompatibleEmbedder:
     ):
         if not api_key:
             raise ValueError("api_key 为空：请通过环境变量注入，不要写进仓库")
-        self.base_url = base_url
+        self.base_url = base_url.rstrip("/")
+        self.url = (
+            self.base_url
+            if self.base_url.endswith("/embeddings")
+            else f"{self.base_url}/embeddings"
+        )
         self.api_key = api_key
         self.model = model
         self.dim = dim
@@ -107,7 +113,7 @@ class OpenAICompatibleEmbedder:
             }
         ).encode("utf-8")
         request = urllib.request.Request(
-            self.base_url,
+            self.url,
             data=payload,
             headers={
                 "Authorization": f"Bearer {self.api_key}",
@@ -159,23 +165,30 @@ class HashingEmbedder:
         return vectors
 
 
-def build_embedder(backend: str, model: str = "BAAI/bge-small-zh-v1.5", dim: int = 512):
-    """Construct an embedder from config; imports heavy deps lazily."""
-    if backend == "hashing":
+def build_embedder(
+    backend: str,
+    model: str = "",
+    dim: int = 0,
+    base_url: str = "",
+):
+    """Construct an embedder from a provider preset; heavy deps are lazy.
+
+    API keys are read from environment variables only. Provider presets live in
+    ``providers.py``; ``model``/``dim``/``base_url`` override the defaults.
+    """
+    provider = embedding_provider(backend)
+    model = model or provider.default_model
+    dim = int(dim or provider.default_dim)
+    if provider.kind == "hashing":
         return HashingEmbedder(dim=dim)
-    if backend == "local":
+    if provider.kind == "local":
         return SentenceTransformerEmbedder(model_name=model, dim=dim)
-    if backend == "dashscope":
-        return OpenAICompatibleEmbedder(
-            base_url=os.environ.get(
-                "DASHSCOPE_EMBED_URL",
-                "https://dashscope.aliyuncs.com/compatible-mode/v1/embeddings",
-            ),
-            api_key=os.environ.get("DASHSCOPE_API_KEY", ""),
-            model=model,
-            dim=dim,
-        )
-    raise ValueError(f"未知嵌入后端: {backend}（可选 hashing/local/dashscope）")
+    return OpenAICompatibleEmbedder(
+        base_url=base_url or provider.base_url,
+        api_key=api_key(provider),
+        model=model,
+        dim=dim,
+    )
 
 
 __all__ = [

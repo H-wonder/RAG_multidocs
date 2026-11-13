@@ -29,10 +29,19 @@ class Settings:
     milvus_dense_weight: float = 0.7
     milvus_sparse_weight: float = 0.3
 
-    # embedding: hashing (CI/smoke) | local (bge) | dashscope
+    # embedding provider: local | hashing | dashscope | openai | ollama
     embed_backend: str = "local"
-    embed_model: str = "BAAI/bge-small-zh-v1.5"
-    embed_dim: int = 512
+    embed_model: str = ""          # 空 -> provider 默认模型
+    embed_dim: int = 0             # 0 -> provider 默认维度
+    embed_base_url: str = ""       # 空 -> provider 默认地址
+
+    # chat provider: 空表示不启用生成式问答
+    chat_provider: str = ""
+    chat_model: str = ""           # 空 -> provider 默认模型
+    chat_base_url: str = ""        # 空 -> provider 默认地址
+    chat_temperature: float = 0.2
+    chat_max_tokens: int = 1024
+    rag_top_k: int = 5
 
     # docparse
     docparse_repo: str = ""
@@ -74,12 +83,33 @@ class Settings:
             settings.milvus_dense_weight = float(os.environ["MILVUS_DENSE_WEIGHT"])
         if os.environ.get("MILVUS_SPARSE_WEIGHT"):
             settings.milvus_sparse_weight = float(os.environ["MILVUS_SPARSE_WEIGHT"])
-        settings.embed_backend = os.environ.get(
-            "EMBED_BACKEND", settings.embed_backend
-        )
+        env_embed_backend = os.environ.get("EMBED_BACKEND")
+        if env_embed_backend and env_embed_backend != settings.embed_backend:
+            # 换 provider 时不要沿用旧模型的维度和模型名
+            settings.embed_backend = env_embed_backend
+            settings.embed_model = ""
+            settings.embed_dim = 0
+        elif env_embed_backend:
+            settings.embed_backend = env_embed_backend
         settings.embed_model = os.environ.get("EMBED_MODEL", settings.embed_model)
         if os.environ.get("EMBED_DIM"):
             settings.embed_dim = int(os.environ["EMBED_DIM"])
+        settings.embed_base_url = os.environ.get(
+            "EMBED_BASE_URL", settings.embed_base_url
+        )
+        settings.chat_provider = os.environ.get(
+            "CHAT_PROVIDER", settings.chat_provider
+        )
+        settings.chat_model = os.environ.get("CHAT_MODEL", settings.chat_model)
+        settings.chat_base_url = os.environ.get(
+            "CHAT_BASE_URL", settings.chat_base_url
+        )
+        if os.environ.get("CHAT_TEMPERATURE"):
+            settings.chat_temperature = float(os.environ["CHAT_TEMPERATURE"])
+        if os.environ.get("CHAT_MAX_TOKENS"):
+            settings.chat_max_tokens = int(os.environ["CHAT_MAX_TOKENS"])
+        if os.environ.get("RAG_TOP_K"):
+            settings.rag_top_k = int(os.environ["RAG_TOP_K"])
         settings.docparse_repo = os.environ.get(
             "DOCPARSE_REPO", settings.docparse_repo
         )
