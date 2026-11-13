@@ -1,0 +1,79 @@
+{
+  "path": "rag-intro.pdf",
+  "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+  "doc_type": "pdf",
+  "needs_review": false,
+  "warnings": [],
+  "pages": [
+    {
+      "number": 1,
+      "kind": "native",
+      "mode": "native",
+      "blocks": [
+        {
+          "id": "p1b0",
+          "page": 1,
+          "type": "title",
+          "bbox": [100, 80, 900, 160],
+          "reading_order": 0,
+          "content": "1 Introduction",
+          "source": "native_text",
+          "confidence": 0.99,
+          "warnings": []
+        },
+        {
+          "id": "p1b1",
+          "page": 1,
+          "type": "text",
+          "bbox": [100, 200, 900, 420],
+          "reading_order": 1,
+          "content": "Retrieval-augmented generation combines a retriever with a generator. The retriever returns relevant passages from an external corpus.",
+          "source": "native_text",
+          "confidence": 0.99,
+          "warnings": []
+        },
+        {
+          "id": "p1b2",
+          "page": 1,
+          "type": "table",
+          "bbox": [100, 450, 900, 700],
+          "reading_order": 2,
+          "content": "<table><tr><td>Component</td><td>Role</td></tr><tr><td>Retriever</td><td>Fetch passages</td></tr><tr><td>Generator</td><td>Produce answer</td></tr></table>",
+          "html": "<table><tr><td>Component</td><td>Role</td></tr><tr><td>Retriever</td><td>Fetch passages</td></tr><tr><td>Generator</td><td>Produce answer</td></tr></table>",
+          "source": "native_text",
+          "confidence": 0.98,
+          "warnings": []
+        }
+      ]
+    },
+    {
+      "number": 2,
+      "kind": "native",
+      "mode": "native",
+      "blocks": [
+        {
+          "id": "p2b0",
+          "page": 2,
+          "type": "title",
+          "bbox": [100, 80, 900, 150],
+          "reading_order": 0,
+          "content": "2 Method",
+          "source": "native_text",
+          "confidence": 0.99,
+          "warnings": []
+        },
+        {
+          "id": "p2b1",
+          "page": 2,
+          "type": "text",
+          "bbox": [100, 200, 900, 500],
+          "reading_order": 1,
+          "content": "We index passages with a dense encoder and a BM25 sparse index, then fuse the two result lists.",
+          "source": "native_text",
+          "confidence": 0.99,
+          "warnings": []
+        }
+      ]
+    }
+  ]
+}

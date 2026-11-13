@@ -1,0 +1,3 @@
+# Runtime: Python 3.10+ standard library only.
+# PDF/scan/Office support is provided by an external docparse installation
+# (see DOCPARSE_REPO / DOCPARSE_PYTHON in config.example.json).

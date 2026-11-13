@@ -1,0 +1,13 @@
+{
+  "data_dir": "data",
+  "connectors_dir": "connectors",
+  "enabled_connectors": [
+    "txt",
+    "pdf",
+    "connector.markdown"
+  ],
+  "docparse_repo": "../已有资源/可选组件/docparse",
+  "docparse_python": "",
+  "docparse_mode": "auto",
+  "docparse_timeout_s": 1800
+}

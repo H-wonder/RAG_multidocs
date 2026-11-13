@@ -1,0 +1,33 @@
+digraph flow {
+  rankdir=TB;
+  graph [fontname="Noto Sans CJK SC", fontsize=11, pad=0.3, nodesep=0.35, ranksep=0.45];
+  node [shape=box, style="rounded,filled", fontname="Noto Sans CJK SC", fontsize=10,
+        fillcolor="#eef3fb", color="#5b7db1"];
+  edge [fontname="Noto Sans CJK SC", fontsize=9, color="#555555"];
+
+  u [label="用户", shape=oval, fillcolor="#fff2cc", color="#bf9000"];
+  cli [label="CLI\n解析参数"];
+  svc [label="IngestService\n调用 Connector"];
+  reg [label="ConnectorRegistry\n按名称查找"];
+  conn [label="Markdown Connector\n读取 .md 目录"];
+  doc [label="Document\n统一模型"];
+  ch [label="Chunker\nsection_path + chunk id"];
+  ix [label="KeywordIndex\n先删后插"];
+  save [label="保存 index.json"];
+  out [label="检索结果\nsource / page / section"];
+
+  u -> cli [label="ingest --source markdown"];
+  cli -> svc;
+  svc -> reg;
+  reg -> conn [label="manifest + adapter"];
+  conn -> doc;
+  doc -> ch;
+  ch -> ix;
+  ix -> save;
+  save -> out [style=dashed, label="search"];
+
+  err [label="ConnectorIssue\nFILE_NOT_FOUND\nEMPTY_SOURCE\nCONNECTOR_DISABLED", shape=note,
+       fillcolor="#fbe5d6", color="#c55a11"];
+  reg -> err [style=dashed, label="失败分支"];
+  err -> cli [style=dashed, label="退出码 2"];
+}

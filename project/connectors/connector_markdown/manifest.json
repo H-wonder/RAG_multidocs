@@ -1,0 +1,21 @@
+{
+  "name": "connector.markdown",
+  "version": "0.1.0",
+  "description": "递归读取 Markdown 目录，转换为统一文档模型",
+  "entry": "adapter:load",
+  "enabled": true,
+  "input_schema": {
+    "type": "object",
+    "required": ["path"],
+    "properties": {
+      "path": {
+        "type": "string",
+        "description": "Markdown 文件或目录"
+      }
+    }
+  },
+  "output_schema": {
+    "type": "object",
+    "description": "ConnectorResult：documents + issues"
+  }
+}

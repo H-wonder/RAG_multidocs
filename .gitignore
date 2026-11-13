@@ -2,6 +2,7 @@
 __pycache__/
 *.py[cod]
 .pytest_cache/
+.ruff_cache/
 .venv/
 venv/
 *.egg-info/
@@ -19,6 +20,8 @@ milvus_data/
 *.sqlite3
 *.log
 已有资源/样例/demo_index.json
+project/config.json
+project/data/
 
 # IDE / OS
 .idea/

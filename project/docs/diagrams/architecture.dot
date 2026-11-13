@@ -1,0 +1,50 @@
+digraph architecture {
+  rankdir=LR;
+  graph [fontname="Noto Sans CJK SC", fontsize=11, pad=0.3, nodesep=0.35, ranksep=0.55];
+  node [shape=box, style="rounded,filled", fontname="Noto Sans CJK SC", fontsize=10,
+        fillcolor="#eef3fb", color="#5b7db1"];
+  edge [fontname="Noto Sans CJK SC", fontsize=9, color="#555555"];
+
+  user [label="用户\nCLI", fillcolor="#fff2cc", color="#bf9000"];
+  cli [label="CLI 适配器\n(rag-cli)", fillcolor="#fff2cc", color="#bf9000"];
+
+  subgraph cluster_core {
+    label="Core（Python 标准库）";
+    fontname="Noto Sans CJK SC";
+    color="#b4c6e7";
+    style="rounded,dashed";
+    ingest [label="IngestService"];
+    search [label="SearchService"];
+    registry [label="ConnectorRegistry"];
+    chunker [label="Chunker\nTXT / Markdown / IR"];
+    index [label="KeywordIndex\nBM25（离线回退）"];
+  }
+
+  subgraph cluster_connectors {
+    label="Connector（统一契约）";
+    fontname="Noto Sans CJK SC";
+    color="#c6e0b4";
+    style="rounded,dashed";
+    txt [label="TXT\n内置", fillcolor="#e2f0d9", color="#548235"];
+    pdf [label="PDF / 扫描件 / Office\n内置", fillcolor="#e2f0d9", color="#548235"];
+    md [label="Markdown 目录\n独立扩展", fillcolor="#e2f0d9", color="#548235"];
+  }
+
+  docparse [label="docparse 子进程\n(docparse conda env)", fillcolor="#fce4d6", color="#c55a11"];
+  ollama [label="Ollama\nXiaomi-OCR-0", fillcolor="#fce4d6", color="#c55a11"];
+  disk [label="index.json\n本地持久化", shape=cylinder, fillcolor="#ededed", color="#777777"];
+
+  user -> cli [label="ingest / search"];
+  cli -> ingest [label="ingest"];
+  cli -> search [label="search"];
+  ingest -> registry [label="load(name)"];
+  registry -> txt;
+  registry -> pdf;
+  registry -> md [label="manifest"];
+  ingest -> chunker;
+  chunker -> index [label="Chunk"];
+  search -> index [label="query"];
+  index -> disk [label="save/load"];
+  pdf -> docparse [label="subprocess"];
+  docparse -> ollama [label="loopback HTTP"];
+}

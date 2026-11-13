@@ -1,0 +1,377 @@
+# RAG Multidocs——系统设计文档
+
+> 项目：插件化多模态文档接入与检索平台
+> 版本：0.1.0
+> 仓库：<https://github.com/H-wonder/RAG_multidocs>
+> 说明：本文档与 `src/`、`tests/`、`connectors/` 当前实现一致；提交版由本文导出为 `DESIGN.docx`。
+
+## 1. 项目概述与需求
+
+### 1.1 目标用户与问题
+
+目标用户是需要检索课程资料的教师和学生。真实资料通常分散在 TXT 笔记、Markdown 文档、
+PDF 论文和扫描件中。直接按文件翻找效率低；把资料简单拼成一个大文本又无法回答
+“这句话来自哪个文件、哪一页、哪一节”。本项目要解决的是**统一接入与可溯源检索**：
+
+- 用户指定数据源（TXT 文件/目录、Markdown 目录、PDF/扫描件、Office 文档）；
+- 系统把不同格式转换为统一文档模型，切成可检索的块；
+- 用户输入关键词，得到命中文本及其来源；
+- 接入失败时返回明确错误，而不是静默跳过或崩溃。
+
+### 1.2 核心使用场景
+
+```text
+用户执行：
+  rag-cli ingest --source connector.markdown --path samples/markdown
+  rag-cli search "表格怎么切块"
+
+系统完成：
+  Connector 读取目录 → Document（doc_id/source/title/正文）
+  → Chunker 切块（section_path/page/确定性 chunk id）
+  → KeywordIndex 建立 BM25 索引并写入 index.json
+  → 检索返回 text + source + page + section_path
+
+用户得到：
+  [1] 6.25  chunking.md  §切块策略 > 按结构切 > 表格
+      表格必须整块保留。按字符数切会把一行数据切成两半……
+```
+
+**核心场景的完成条件**：
+
+1. TXT 与 Markdown 两种来源都能导入；
+2. 至少一条查询命中正确文档或片段，且返回 `source`；
+3. 路径不存在、空文件、空目录、未知/禁用 Connector 均有结构化错误；
+4. 禁用独立 Markdown Connector 后，TXT 导入与检索仍可用；
+5. 上述行为由自动化测试断言，CI 可重复执行。
+
+### 1.3 本次范围
+
+**实现**：
+
+- 统一 `Document` / `Chunk` 模型；
+- 内置 TXT Connector（单文件或目录）；
+- 内置 PDF/扫描件/Office Connector（通过外部 docparse 子进程，可选）；
+- BM25 关键词索引、检索、本地持久化；
+- Connector 注册表（内置 + manifest/adapter 插件）；
+- 独立 Markdown 目录 Connector；
+- CLI：`ingest/search/docs/connectors/stats`；
+- 测试、CI、README、设计文档、release 模板。
+
+**不实现**：
+
+- 用户登录、权限、多租户；
+- 爬虫集群、插件市场、热加载；
+- 生成式回答、复杂 Agent、模型评测；
+- 把向量数据库/真实模型作为运行必需项；
+- 完整教务/校园业务系统。
+
+## 2. 总体架构
+
+![总体架构](diagrams/architecture.png)
+
+### 2.1 模块与依赖方向
+
+```text
+CLI ──► Core（IngestService / SearchService / ConnectorRegistry）
+             │
+             ├── 内置 Connector：TXT、PDF/扫描件/Office
+             ├── 独立扩展：Markdown 目录（manifest + adapter）
+             └── KeywordIndex（BM25，本地 index.json）
+
+PDF Connector ──子进程──► docparse conda env ──loopback──► Ollama
+```
+
+| 模块 | 职责 | 依赖 |
+| --- | --- | --- |
+| `cli.py` | 参数解析、结果展示、退出码 | Core、Connector 实现 |
+| `ingest.py` | 调用 Connector、切块、写入索引 | 契约、Chunker、Index |
+| `search.py` | 查询索引并返回命中 | Index |
+| `registry.py` | 按名称发现/加载内置与插件 Connector | 契约、manifest |
+| `contracts.py` | `ConnectorConfig/Result/Issue/Error` 公开契约 | 无 |
+| `model.py` | `Document`、`Chunk`、稳定 id | 标准库 |
+| `chunking.py` | TXT/Markdown/IR 切块 | `model` |
+| `index.py` | BM25 索引、持久化、文档汇总 | `model` |
+| `connectors/txt.py` | 内置 TXT 接入 | 契约、`model` |
+| `connectors/pdf.py` | 内置 docparse 子进程接入 | 契约、`model` |
+| `connectors/connector_markdown/` | 独立 Markdown 扩展 | 契约、`model` |
+
+### 2.2 核心与扩展边界
+
+- 核心只依赖 `Connector` 契约和 `Document`/`Chunk` 模型；
+- 核心**不**按 `source_type` 写分支，只按 Connector 注册名查找；
+- 独立扩展只依赖 `rag_multidocs.contracts` 和 `rag_multidocs.model`，
+  不 import `IngestService`、`CLI`、`KeywordIndex` 的内部实现；
+- PDF 解析放在外部进程，paddle/torch 等重依赖不进入核心环境；
+- 新增数据源只需增加插件目录和 manifest，不修改 `src/rag_multidocs/`。
+
+## 3. 模块设计
+
+### 3.1 统一文档模型
+
+```python
+@dataclass
+class Document:
+    doc_id: str       # sha256(相对来源路径)[:12]
+    source: str       # 相对路径/URI，检索结果必须回显
+    content: str
+    title: str
+    media_type: str
+    metadata: dict    # sha256、解析器信息、可选 docparse_ir
+    segments: list
+
+@dataclass
+class Chunk:
+    id: str           # sha1(doc_id:类型:序号)[:20]
+    doc_id: str
+    text: str
+    source: str
+    index: int
+    content_type: str # text/table/code/formula/figure/page_text
+    section_path: str # "3 Method > 3.2 Attention"
+    page: int
+    page_end: int
+    bbox: str         # docparse 归一化坐标 JSON
+    block_ids: list
+    metadata: dict
+```
+
+`doc_id` 使用相对路径而不是绝对路径，换机器/换目录后增量索引用同一身份。
+`chunk.id` 由 `(doc_id, 类型, 序号)` 决定，同一文档重跑得到同一批 id，索引层
+“先删后插”即可幂等更新。
+
+### 3.2 Connector 契约
+
+```python
+@dataclass(frozen=True)
+class ConnectorConfig:
+    name: str
+    path: str
+    options: dict
+
+@dataclass
+class ConnectorIssue:
+    code: str       # FILE_NOT_FOUND / EMPTY_SOURCE / PARSE_ERROR ...
+    message: str
+    source: str = ""
+
+@dataclass
+class ConnectorResult:
+    documents: list[Document]
+    issues: list[ConnectorIssue]
+
+class Connector(Protocol):
+    name: str
+    def load(self, config: ConnectorConfig) -> ConnectorResult: ...
+```
+
+错误约定：
+
+| 情况 | 行为 |
+| --- | --- |
+| 路径不存在 | `FILE_NOT_FOUND`，CLI 退出码 2 |
+| 文件为空 | `EMPTY_FILE`，跳过该文件，其他文件继续 |
+| 目录没有匹配文件 | `EMPTY_SOURCE` |
+| 单个文件读取失败 | `READ_ERROR`，记录来源，继续处理其他文件 |
+| PDF 解析器不可用 | `CONNECTOR_UNAVAILABLE` |
+| PDF/OCR 解析失败 | `PARSE_ERROR`，带解析器输出尾部 |
+| 未知 Connector | `CONNECTOR_NOT_FOUND`，列出可用名称 |
+| Connector 被禁用 | `CONNECTOR_DISABLED` |
+| 插件抛未知异常 | `CONNECTOR_ERROR`，核心不崩溃 |
+
+### 3.3 索引与检索
+
+`KeywordIndex` 使用 BM25（k1=1.2, b=0.75）：
+
+- 英文按小写词，中文按单字 + 连续中文串的二元组；
+- 章节路径也参与索引，正文没写“切块”时仍可通过 `section_path` 召回；
+- 文档长度参与归一化，短块不会因为词频高而绝对占优；
+- `search(query, top_k, doc_ids)` 返回 `score/doc_id/source/text/page/section_path/content_type`；
+- `save/load` 使用 JSON，适合课程规模；`list_docs` 汇总已索引文档。
+
+### 3.4 CLI 适配器
+
+| 命令 | 作用 | 失败行为 |
+| --- | --- | --- |
+| `rag-cli ingest --source NAME --path P` | 导入数据源 | 无文档时退出码 2，打印 issues |
+| `rag-cli search Q --top-k N` | 检索并显示来源 | 无命中打印 `no hits`，退出码 0 |
+| `rag-cli docs list` | 已索引文档汇总 | 空索引提示 `no documents` |
+| `rag-cli connectors list` | 内置/插件与启用状态 | — |
+| `rag-cli connectors enable/disable NAME` | 修改配置并持久化 | 未知名称退出码 2 |
+| `rag-cli stats` | 块数/词项数/文档数 | — |
+
+## 4. 扩展机制与接口设计
+
+### 4.1 插件目录与 manifest
+
+```text
+connectors/connector_markdown/
+├── manifest.json
+├── adapter.py
+└── README.md
+```
+
+```json
+{
+  "name": "connector.markdown",
+  "version": "0.1.0",
+  "description": "递归读取 Markdown 目录",
+  "entry": "adapter:load",
+  "enabled": true,
+  "input_schema": {"type": "object", "required": ["path"]}
+}
+```
+
+核心 `ConnectorRegistry` 扫描 `connectors_dir` 下的 `manifest.json`，按 `entry`
+加载 `adapter.py`，调用 `load(payload, context)`。`payload` 包含
+`name/path/options`，返回值规范化为 `ConnectorResult`。
+
+### 4.2 独立扩展接入示例
+
+Markdown 目录 Connector 的行为：
+
+1. 输入可以是单文件或目录，目录递归读取 `.md`/`.markdown`；
+2. 标题取第一个 `# ` 标题，否则用文件名；
+3. `source` 使用相对路径，保证 doc_id 稳定；
+4. 单文件读取失败记录 `READ_ERROR`，其他文件继续；
+5. 空目录抛 `EMPTY_SOURCE`。
+
+接入：
+
+```bash
+rag-cli ingest --source connector.markdown --path samples/markdown
+```
+
+核心源码不变：扩展只新增 `connectors/connector_markdown/`，无需修改
+`src/rag_multidocs/`。禁用：
+
+```bash
+rag-cli connectors disable connector.markdown
+rag-cli ingest --source txt --path samples/notes.txt   # 核心仍可用
+```
+
+### 4.3 兼容策略
+
+- manifest 新增可选字段不影响旧核心；未知字段忽略；
+- 新增 `ConnectorIssue.code` 属于增量变更，CLI 原样展示，不破坏旧代码；
+- `ConnectorResult` 当前为 `documents + issues`；若未来增加字段，保持默认值，
+  避免旧插件返回列表时失效；
+- 暂不要求多版本插件同时运行；不兼容变更在 README/设计文档中说明。
+
+## 5. 关键业务流程
+
+![入库与检索流程](diagrams/flow.png)
+
+以 Markdown 导入为例：
+
+1. 用户执行 `rag-cli ingest --source connector.markdown --path samples/markdown`；
+2. CLI 读取 `config.json`，构建 `ConnectorRegistry`（内置 TXT/PDF + 插件）；
+3. `IngestService` 按名称调用 Connector，得到 `Document` 列表；
+4. 扩展返回 `Document`；核心不关心它来自哪种文件格式；
+5. `Chunker` 按标题层级生成 `section_path`，按 token 预算装箱，生成确定性 id；
+6. `IngestService` 先 `remove_doc(doc_id)` 再 `add(chunks)`，重跑不产生重复；
+7. 索引保存到 `index.json`；
+8. `search` 读取同一索引，返回命中及来源。
+
+**失败分支**：路径不存在时 Connector 返回 `FILE_NOT_FOUND`，`IngestService`
+不抛异常，CLI 打印错误并以退出码 2 结束；其他已成功文档不受影响。PDF 解析器
+不可用时返回 `CONNECTOR_UNAVAILABLE`，TXT/Markdown 仍可导入。
+
+## 6. 数据与配置
+
+### 6.1 索引文件
+
+```json
+{
+  "k1": 1.2,
+  "b": 0.75,
+  "chunks": {
+    "chunk_id": {
+      "id": "...", "doc_id": "...", "text": "...", "source": "guide.md",
+      "index": 0, "content_type": "text", "section_path": "切块 > 表格",
+      "page": 0, "page_end": 0, "bbox": "", "block_ids": "", "metadata": {}
+    }
+  },
+  "postings": {"词项": {"chunk_id": 2}},
+  "doc_len": {"chunk_id": 120}
+}
+```
+
+### 6.2 配置
+
+`config.json`（本地，不提交）由 `config.example.json` 复制：
+
+| 字段 | 默认 | 说明 |
+| --- | --- | --- |
+| `data_dir` | `data` | 索引落盘目录 |
+| `connectors_dir` | `connectors` | 插件目录 |
+| `enabled_connectors` | txt/pdf/connector.markdown | 启用的 Connector |
+| `docparse_repo` | 空 | 含 `docparse/` 包的目录 |
+| `docparse_python` | 空（用当前 Python） | docparse 环境 Python |
+| `docparse_mode` | `auto` | auto/page/region |
+| `docparse_timeout_s` | 1800 | 单文件超时 |
+
+环境变量 `RAG_DATA_DIR`、`RAG_CONNECTORS_DIR`、`DOCPARSE_REPO`、
+`DOCPARSE_PYTHON`、`DOCPARSE_MODE` 可覆盖配置。密钥只从环境注入，不写入仓库。
+
+### 6.3 敏感信息
+
+- 项目核心不需要任何密钥；
+- docparse/Ollama/Milvus 配置通过环境变量或本地 `config.json` 注入；
+- `.gitignore` 排除 `.env`、`config.json`、`data/`、缓存和模型文件；
+- 日志不打印正文全文和密钥。
+
+## 7. 测试与质量方案
+
+### 7.1 测试覆盖
+
+| 类型 | 用例 | 断言 |
+| --- | --- | --- |
+| 正常 | TXT 导入后检索 | 命中文档，`source=notes.txt`，正文包含关键词 |
+| 正常 | Markdown 扩展导入 | 命中 `guide.md`，`section_path` 含“表格” |
+| 扩展 | 禁用 Markdown 后导入 | `CONNECTOR_DISABLED`；TXT 仍成功 |
+| 边界 | 空文件、空目录 | `EMPTY_FILE`、`EMPTY_SOURCE` |
+| 失败 | 路径不存在、未知 Connector | `FILE_NOT_FOUND`、`CONNECTOR_NOT_FOUND` |
+| 契约 | docparse IR 映射 | 页码、章节、表格块正确 |
+| CLI | `ingest/search/docs/connectors` | 输出与退出码 |
+| 幂等 | 同一文档重复导入 | 块数不翻倍 |
+
+### 7.2 CI 与静态检查
+
+- 仓库根 `.github/workflows/ci.yml`：Python 3.11，`pip install -e ".[dev]"`，
+  `ruff check src tests connectors`，`pytest -q`；
+- 测试不依赖 Milvus、Ollama 或网络；PDF 解析器不可用的错误路径也纳入测试；
+- 风格检查使用 ruff（仅 E4/E7/E9/F，避免无关格式噪音）。
+
+### 7.3 故意引入错误演示
+
+把 `TxtConnector` 中 `if not text.strip():` 改为 `if False:`，
+`test_empty_file_and_empty_directory` 会失败（空文件被当成正常文档）；
+恢复后测试通过。该演示用于说明测试能发现真实行为变化。
+
+## 8. 设计取舍、局限与后续计划
+
+### 8.1 设计取舍
+
+| 选择 | 理由 | 代价/替代方案 |
+| --- | --- | --- |
+| 关键词 BM25 作为默认索引 | 无外部依赖、可复现、测试稳定；满足“简单关键词索引”要求 | 同义改写召回弱；向量检索作为后续可选 |
+| Connector 用 manifest + adapter | 扩展可独立目录、独立构建；核心不按类型分支 | 需要维护 manifest 契约；替代方案 setuptools entry points 更“标准”但课程环境配置更重 |
+| PDF 解析放外部 docparse 子进程 | paddle/Ollama 依赖重，隔离失败；核心保持轻量 | 部署多一个环境；替代方案进程内 import 会把重依赖带入核心 |
+| 索引存本地 JSON | 课程规模足够、可检查、易演示 | 大规模并发/增量更新不适合；未来可换 SQLite/向量库 |
+| 不生成回答 | 课程重点是接入—索引—检索闭环；检索证据可核对 | 后续可把命中交给 LLM，但必须区分证据与生成 |
+
+### 8.2 已知限制
+
+- 中文分词为单字 + 二元组，未做领域词典；
+- PDF/扫描件依赖 docparse 与 Ollama，未配置时 PDF 不可用；
+- 索引为单文件，未实现并发写锁与大规模增量；
+- Markdown 表格按整块保留，未做复杂合并单元格还原；
+- 未实现插件版本兼容矩阵；不兼容变更需在文档说明。
+
+### 8.3 后续计划
+
+1. 增加 HTML Connector（与 Markdown 二选一即可，不重复造第二套扩展机制）；
+2. 可选接入 Milvus + 本地嵌入，保留关键词回退与来源字段；
+3. 增加增量清单（SQLite）与 SimHash 去重；
+4. 增加 Web 适配器（FastAPI + 单页检索），复用同一 Core；
+5. 增加更多真实课程资料样例与回归测试。
