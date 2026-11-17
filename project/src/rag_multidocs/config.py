@@ -49,6 +49,9 @@ class Settings:
     docparse_mode: str = "auto"
     docparse_timeout_s: int = 1800
 
+    # local API-key store (0600, gitignored); env vars take precedence
+    credentials_file: str = ".rag/credentials.json"
+
     @property
     def index_file(self) -> Path:
         return Path(self.data_dir) / "index.json"
@@ -118,6 +121,9 @@ class Settings:
         )
         settings.docparse_mode = os.environ.get(
             "DOCPARSE_MODE", settings.docparse_mode
+        )
+        settings.credentials_file = os.environ.get(
+            "RAG_CREDENTIALS", settings.credentials_file
         )
         timeout = os.environ.get("DOCPARSE_TIMEOUT_S")
         if timeout:

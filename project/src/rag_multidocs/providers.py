@@ -1,7 +1,9 @@
 """Model provider presets.
 
-API keys are read from environment variables only; they are never written to
-config.json or the repository.
+API keys come from environment variables.  The CLI additionally loads a
+project-local, gitignored credentials file into the process environment at
+startup (see ``credentials.py``); an already-set environment variable always
+takes precedence.  Keys are never written to config.json or the repository.
 """
 
 from __future__ import annotations
@@ -152,8 +154,9 @@ def api_key(provider: EmbeddingProvider | ChatProvider) -> str:
     value = os.environ.get(provider.api_key_env, "")
     if not value:
         raise ValueError(
-            f"未设置 {provider.api_key_env}；API Key 只从环境变量读取，"
-            f"例如：export {provider.api_key_env}=..."
+            f"未设置 {provider.api_key_env}。可以执行 "
+            f"`rag-cli keys set --provider <provider>` 保存到本项目，"
+            f"或临时执行 export {provider.api_key_env}=..."
         )
     return value
 
@@ -162,6 +165,28 @@ def key_available(provider: EmbeddingProvider | ChatProvider) -> bool:
     if not provider.api_key_env:
         return True
     return bool(os.environ.get(provider.api_key_env))
+
+
+def env_var_for_provider(provider_name: str) -> str:
+    """Return the API-key environment variable for a provider name."""
+    preset = CHAT_PROVIDERS.get(provider_name) or EMBEDDING_PROVIDERS.get(provider_name)
+    if preset is None:
+        raise ValueError(
+            f"未知 provider: {provider_name}"
+            f"（可选 chat: {', '.join(CHAT_PROVIDERS)}；"
+            f"embedding: {', '.join(EMBEDDING_PROVIDERS)}）"
+        )
+    if not preset.api_key_env:
+        raise ValueError(f"provider {provider_name} 不需要 API Key")
+    return preset.api_key_env
+
+
+def providers_for_env(env_name: str) -> list[str]:
+    names: list[str] = []
+    for preset in (*CHAT_PROVIDERS.values(), *EMBEDDING_PROVIDERS.values()):
+        if preset.api_key_env == env_name and preset.name not in names:
+            names.append(preset.name)
+    return names
 
 
 def list_embedding_providers() -> list[dict]:
@@ -180,7 +205,9 @@ __all__ = [
     "api_key",
     "chat_provider",
     "embedding_provider",
+    "env_var_for_provider",
     "key_available",
     "list_chat_providers",
     "list_embedding_providers",
+    "providers_for_env",
 ]

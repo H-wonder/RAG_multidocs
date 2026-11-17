@@ -1,8 +1,8 @@
 """OpenAI-compatible chat client and retrieval-augmented answer construction.
 
-API keys are read from environment variables only (see ``providers.py``).
-The generated answer is always paired with the retrieved evidence; callers must
-not present model output as if it were a retrieved fact.
+API keys are read from the process environment (see ``providers.py`` and
+``credentials.py``).  The generated answer is always paired with the retrieved
+evidence; callers must not present model output as if it were a retrieved fact.
 """
 
 from __future__ import annotations
@@ -53,23 +53,30 @@ class OpenAICompatibleChat:
         self.timeout = timeout
         self.retries = retries
 
-    def _post(self, messages: list[dict[str, str]]) -> str:
+    def _headers(self) -> dict[str, str]:
         headers = {"Content-Type": "application/json"}
         if self.api_key:
             headers["Authorization"] = f"Bearer {self.api_key}"
-        payload = json.dumps(
-            {
-                "model": self.model,
-                "messages": messages,
-                "temperature": self.temperature,
-                "max_tokens": self.max_tokens,
-            }
-        ).encode("utf-8")
-        request = urllib.request.Request(
-            self.url, data=payload, headers=headers, method="POST"
-        )
+        return headers
+
+    def _payload(self, messages: list[dict[str, str]], stream: bool) -> bytes:
+        body: dict[str, Any] = {
+            "model": self.model,
+            "messages": messages,
+            "temperature": self.temperature,
+            "max_tokens": self.max_tokens,
+        }
+        if stream:
+            body["stream"] = True
+        return json.dumps(body).encode("utf-8")
+
+    def _post(self, messages: list[dict[str, str]]) -> str:
+        payload = self._payload(messages, stream=False)
         last_error: Exception | None = None
         for attempt in range(self.retries):
+            request = urllib.request.Request(
+                self.url, data=payload, headers=self._headers(), method="POST"
+            )
             try:
                 with urllib.request.urlopen(request, timeout=self.timeout) as response:
                     data = json.loads(response.read().decode("utf-8"))
@@ -78,6 +85,50 @@ class OpenAICompatibleChat:
                 last_error = exc
                 if attempt + 1 < self.retries:
                     time.sleep(1 + attempt)
+        raise RuntimeError(f"LLM 调用失败: {last_error}") from last_error
+
+    def stream(self, messages: list[dict[str, str]], on_token) -> str:
+        """Stream tokens through ``on_token`` and return the full answer.
+
+        Retries only when no token has been emitted yet, so partial output is
+        never duplicated.
+        """
+        payload = self._payload(messages, stream=True)
+        last_error: Exception | None = None
+        for attempt in range(self.retries):
+            request = urllib.request.Request(
+                self.url, data=payload, headers=self._headers(), method="POST"
+            )
+            pieces: list[str] = []
+            try:
+                with urllib.request.urlopen(request, timeout=self.timeout) as response:
+                    for raw in response:
+                        line = raw.decode("utf-8", "replace").strip()
+                        if not line.startswith("data:"):
+                            continue
+                        data = line[len("data:"):].strip()
+                        if data == "[DONE]":
+                            break
+                        try:
+                            event = json.loads(data)
+                        except json.JSONDecodeError:
+                            continue
+                        choices = event.get("choices") or []
+                        if not choices:
+                            continue
+                        piece = (choices[0].get("delta") or {}).get("content") or ""
+                        if piece:
+                            pieces.append(piece)
+                            on_token(piece)
+                answer = "".join(pieces).strip()
+                if not answer:
+                    raise RuntimeError("LLM 返回空内容")
+                return answer
+            except Exception as exc:
+                last_error = exc
+                if pieces or attempt + 1 >= self.retries:
+                    break
+                time.sleep(1 + attempt)
         raise RuntimeError(f"LLM 调用失败: {last_error}") from last_error
 
     def complete(self, messages: list[dict[str, str]]) -> str:
@@ -140,8 +191,13 @@ def answer_with_evidence(
     hits: list[dict[str, Any]],
     chat: ChatModel,
     max_evidence_chars: int = 8000,
+    on_token=None,
 ) -> dict[str, Any]:
-    """Retrieve-backed answer + citations; never call the model without evidence."""
+    """Retrieve-backed answer + citations; never call the model without evidence.
+
+    When ``on_token`` is given and the chat model supports streaming, tokens are
+    forwarded as they arrive (used by the interactive CLI).
+    """
     citations = [
         {
             "index": index,
@@ -169,7 +225,12 @@ def answer_with_evidence(
             f"证据：\n{evidence}\n\n"
             "请依据证据回答，并用 [编号] 标注引用。"
         )
-    answer = chat.complete(messages)
+    if on_token is not None and hasattr(chat, "stream"):
+        answer = chat.stream(messages, on_token)
+    else:
+        answer = chat.complete(messages)
+        if on_token is not None:
+            on_token(answer)
     return {"answer": answer, "citations": citations, "used_llm": True}
 
 

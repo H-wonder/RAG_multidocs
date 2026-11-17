@@ -19,9 +19,11 @@
 | 关键词 BM25 回退 | 完成 | `index.py`，Milvus 不可用时自动回退 |
 | Embedding provider 选择 | 完成 | `providers.py`、`embedding.py`；local/hashing/dashscope/openai/ollama |
 | 检索增强问答 `rag-cli ask` | 完成，真实 API 待验证 | `llm.py`；证据 prompt + `[n]` 引用 |
-| Chat provider 选择 | 完成 | deepseek/dashscope/openai/ollama；API Key 仅环境变量 |
+| Chat provider 选择 | 完成 | deepseek/dashscope/openai/ollama；Key 支持环境变量或本地凭证文件 |
 | CLI | 完成 | `ingest/search/ask/models/docs/connectors/stats` |
-| 单元测试 | 25 passed | `pytest -q -m "not integration"` |
+| 交互式 CLI | 完成 | 直接运行 `rag-cli` 进入 REPL；`/search`、`/ingest`、`/model`、`/keys`、`/setup`、流式问答 |
+| 本地 API Key 管理 | 完成 | `rag-cli setup` / `keys set|list|unset|export`；`.rag/credentials.json`（0600、gitignored），环境变量优先 |
+| 单元测试 | 50 passed | `pytest -q -m "not integration"` |
 | Milvus 集成测试 | 1 passed（本地隔离容器） | `pytest -q -m integration` |
 | CI | unit job 已真实成功；integration job 待确认 | 仓库根 `.github/workflows/ci.yml` |
 | README/设计文档/环境文档 | 已完成，需随版本更新 | `README.md`、`docs/DESIGN.docx` |

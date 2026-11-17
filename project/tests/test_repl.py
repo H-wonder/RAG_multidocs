@@ -1,0 +1,66 @@
+from rag_multidocs.config import Settings
+from rag_multidocs.repl import Session
+
+
+def _config(tmp_path):
+    settings = Settings(
+        data_dir=str(tmp_path / "data"),
+        index_backend="keyword",
+        credentials_file=str(tmp_path / "credentials.json"),
+    )
+    path = tmp_path / "config.json"
+    settings.save(path)
+    return path
+
+
+def test_repl_help_lists_commands(tmp_path, capsys):
+    session = Session(str(_config(tmp_path)))
+    session.dispatch("/help")
+    out = capsys.readouterr().out
+    assert "/keys set" in out
+    assert "/ingest" in out
+    assert "/setup" in out
+
+
+def test_repl_unknown_command_is_reported(tmp_path, capsys):
+    session = Session(str(_config(tmp_path)))
+    session.dispatch("/nope")
+    assert "未知命令" in capsys.readouterr().err
+
+
+def test_repl_model_chat_persists_config(tmp_path, capsys):
+    config = _config(tmp_path)
+    session = Session(str(config))
+    session.dispatch("/model chat deepseek deepseek-chat")
+    capsys.readouterr()
+
+    settings = Settings.load(config)
+    assert settings.chat_provider == "deepseek"
+    assert settings.chat_model == "deepseek-chat"
+
+
+def test_repl_exit_stops_loop(tmp_path):
+    session = Session(str(_config(tmp_path)))
+    session.dispatch("/exit")
+    assert session._running is False
+
+
+def test_repl_bare_command_is_dispatched(tmp_path, capsys):
+    session = Session(str(_config(tmp_path)))
+    session.dispatch("config")
+    captured = capsys.readouterr()
+    assert "index:" in captured.out
+    assert "可以写成 /config" in captured.err
+
+
+def test_repl_bare_exit_quits_without_hint(tmp_path, capsys):
+    session = Session(str(_config(tmp_path)))
+    session.dispatch("exit")
+    assert session._running is False
+    assert "提示" not in capsys.readouterr().err
+
+
+def test_repl_bare_q_alias_quits(tmp_path):
+    session = Session(str(_config(tmp_path)))
+    session.dispatch("q")
+    assert session._running is False

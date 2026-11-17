@@ -58,3 +58,31 @@ def test_messages_include_numbered_evidence():
     messages = build_messages("问题", _hits())
     assert messages[0]["role"] == "system"
     assert "[1]" in messages[1]["content"]
+
+
+def test_answer_streams_when_model_supports_it():
+    class StreamChat:
+        def stream(self, messages, on_token):
+            on_token("检索器")
+            on_token("负责取回段落 [1]。")
+            return "检索器负责取回段落 [1]。"
+
+        def complete(self, messages):
+            raise AssertionError("有 stream 时不应调用 complete")
+
+    tokens = []
+    result = answer_with_evidence("检索器做什么", _hits(), StreamChat(), on_token=tokens.append)
+
+    assert "".join(tokens) == result["answer"]
+    assert result["used_llm"] is True
+    assert result["citations"][0]["source"] == "notes.txt"
+
+
+def test_answer_falls_back_to_complete_with_on_token():
+    tokens = []
+    result = answer_with_evidence(
+        "检索器做什么", _hits(), FakeChat(), on_token=tokens.append
+    )
+
+    assert tokens == [result["answer"]]
+    assert "[1]" in result["answer"]
