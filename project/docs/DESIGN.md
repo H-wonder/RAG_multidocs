@@ -54,17 +54,19 @@ PDF 论文和扫描件中。直接按文件翻找效率低；把资料简单拼�
 - Milvus 混合检索（dense 向量 + 服务端 BM25），命中带来源；
 - BM25 关键词索引与本地持久化，作为 Milvus 不可用时的回退；
 - 嵌入后端：本地 bge-small-zh / DashScope / OpenAI / Ollama / hashing（CI 冒烟）；
-- 检索增强问答：`rag-cli ask`，证据 + 引用式答案；
+- 检索增强问答：`rag-cli ask`，证据 + 引用式答案，支持流式输出；
+- 交互式 CLI：直接运行 `rag-cli` 进入 REPL，`/search`、`/ingest`、`/model`、`/keys`、`/setup`；
+- 本地 API Key：`.rag/credentials.json`（0600、gitignore），环境变量优先；
 - Connector 注册表（内置 + manifest/adapter 插件）；
 - 独立 Markdown 目录 Connector；
-- CLI：`ingest/search/ask/models/docs/connectors/stats`；
-- 测试、CI、README、设计文档、release 模板。
+- CLI：`ingest/search/ask/models/docs/connectors/stats/keys/setup/repl`；
+- 测试、CI、README、使用说明、设计文档、release 模板。
 
 **不实现**：
 
 - 用户登录、权限、多租户；
 - 爬虫集群、插件市场、热加载；
-- 生成式回答、复杂 Agent、模型评测；
+- 多轮对话记忆、复杂 Agent、模型评测；
 - 把 Milvus/嵌入模型作为硬依赖（不可用时回退关键词）；
 - 完整教务/校园业务系统。
 
@@ -103,8 +105,11 @@ PDF Connector ──子进程──► docparse conda env ──loopback──�
 | `index_milvus.py` | MilvusIndex：dense+BM25、按 doc 先删后插 | `milvus_store`、`embedding` |
 | `milvus_store.py` | Milvus schema/集合/混合检索封装 | pymilvus（可选） |
 | `embedding.py` | Embedder 协议与 bge/DashScope/OpenAI/Ollama/hashing 实现 | sentence-transformers / 标准库 |
-| `providers.py` | embedding/chat provider 预设、环境变量 Key 读取 | 标准库 |
-| `llm.py` | OpenAI 兼容 Chat、证据 prompt、引用式答案 | 标准库 |
+| `providers.py` | embedding/chat provider 预设、Key 环境变量映射 | 标准库 |
+| `credentials.py` | 本地 Key 文件读写、0600 权限、脱敏、启动时加载 | 标准库 |
+| `llm.py` | OpenAI 兼容 Chat、证据 prompt、引用式答案、SSE 流式 | 标准库 |
+| `repl.py` | 交互式会话、斜杠命令、历史记录、流式渲染 | 标准库 readline |
+| `wizard.py` | `setup` 两步向导（chat/embedding + Key） | 标准库 |
 | `connectors/txt.py` | 内置 TXT 接入 | 契约、`model` |
 | `connectors/pdf.py` | 内置 docparse 子进程接入 | 契约、`model` |
 | `connectors/connector_markdown/` | 独立 Markdown 扩展 | 契约、`model` |
@@ -256,7 +261,7 @@ class IndexBackend(Protocol):
 question
   → SearchService 取 top-k 证据（Milvus 或 keyword）
   → build_messages：系统指令 + 编号证据（[1] source p# §section）
-  → ChatModel.complete
+  → ChatModel.complete / ChatModel.stream（SSE，交互模式）
   → answer + citations
 ```
 
@@ -275,14 +280,22 @@ question
 
 | 命令 | 作用 | 失败行为 |
 | --- | --- | --- |
+| `rag-cli` | 进入交互式 REPL（等同 `rag-cli repl`） | 非 TTY 打印帮助，退出码 2 |
+| `rag-cli -p Q` | 一次性问答（可配合 `--provider/--model`） | 同 `ask` |
 | `rag-cli ingest --source NAME --path P` | 导入数据源 | 无文档时退出码 2，打印 issues |
 | `rag-cli search Q --top-k N` | 检索并显示来源 | 无命中打印 `no hits`，退出码 0 |
-| `rag-cli ask Q` | 检索 + LLM 生成 + 引用 | 未配置 chat provider 退出码 2；无证据不调用模型 |
+| `rag-cli ask Q [--stream]` | 检索 + LLM 生成 + 引用 | 未配置 chat provider 退出码 2；无证据不调用模型 |
+| `rag-cli setup` | 两步配置 chat/embedding 与 Key | 非 TTY 退出码 2 |
+| `rag-cli keys list/set/unset/export/path` | 本地 Key 管理（脱敏显示） | 非法 provider/变量名退出码 2 |
 | `rag-cli models list/use` | 查看/选择 provider 与模型 | 未知 provider 退出码 2 |
 | `rag-cli docs list` | 已索引文档汇总 | 空索引提示 `no documents` |
 | `rag-cli connectors list` | 内置/插件与启用状态 | — |
 | `rag-cli connectors enable/disable NAME` | 修改配置并持久化 | 未知名称退出码 2 |
 | `rag-cli stats` | 块数/词项数/文档数 | — |
+
+交互模式命令：`/search`、`/ask`、`/ingest`、`/docs`、`/stats`、`/connectors`、
+`/models`、`/model`、`/keys`、`/setup`、`/config`、`/clear`、`/help`、`/exit`。
+不带 `/` 的命令名也会被识别；`exit`/`quit`/`q`/Ctrl-D 均可退出。
 
 ## 4. 扩展机制与接口设计
 
@@ -415,14 +428,19 @@ rag-cli ingest --source txt --path samples/notes.txt   # 核心仍可用
 
 环境变量 `RAG_DATA_DIR`、`RAG_CONNECTORS_DIR`、`RAG_INDEX_BACKEND`、
 `RAG_FALLBACK_KEYWORD`、`MILVUS_URI/DB/COLLECTION`、`EMBED_BACKEND/MODEL/DIM`、
-`DOCPARSE_REPO/PYTHON/MODE` 可覆盖配置。`DASHSCOPE_API_KEY` 只从环境注入。
+`DOCPARSE_REPO/PYTHON/MODE`、`RAG_CREDENTIALS` 可覆盖配置。API Key 来自环境变量，
+或由 CLI 从本地凭证文件加载（环境变量优先）。
 
 ### 6.3 敏感信息
 
 - 项目核心不需要密钥；本地 bge 嵌入也不需要 Key；
-- DashScope 嵌入/重排 Key、docparse/Ollama/Milvus 配置通过环境变量或本地
-  `config.json` 注入；
-- `.gitignore` 排除 `.env`、`config.json`、`data/`、缓存和模型文件；
+- docparse/Ollama/Milvus 配置通过环境变量或本地 `config.json` 注入；
+- API Key 读取顺序：环境变量 > `.rag/credentials.json`；CLI 启动时只加载到
+  当前进程，不修改父 shell；
+- 凭证文件权限 0600、目录 0700，明文存储，仅建议个人/课程环境使用；
+- `rag-cli keys list` 和 `models list` 只显示脱敏值与来源，`keys export`
+  才会输出明文；
+- `.gitignore` 排除 `.env`、`config.json`、`.rag/`、`data/`、缓存和模型文件；
 - 日志不打印正文全文和密钥。
 
 ## 7. 测试与质量方案
@@ -442,9 +460,13 @@ rag-cli ingest --source txt --path samples/notes.txt   # 核心仍可用
 | 回退 | Milvus 不可用 | 自动切 keyword，打印 WARN，TXT 仍可检索 |
 | Milvus 集成 | 写入 → dense+BM25 检索 | `@pytest.mark.integration`，命中带 source |
 | 问答 | FakeChat + 命中证据 | 证据进入 prompt、答案带引用、无证据不调用模型 |
-| 模型选择 | provider 列表/Key 检查/models use | 环境变量 Key、配置持久化 |
+| 问答 | 流式 Chat + on_token | token 顺序拼接等于最终答案；无 stream 时回退 complete |
+| 模型选择 | provider 列表/Key 检查/models use | 环境变量 Key、配置持久化、`none` 关闭问答 |
+| 凭证 | set/list/unset/apply | 0600 权限、环境变量优先、脱敏、导出语句 |
+| 交互式 | REPL 命令解析与裸命令 | `/help`、别名、未知命令提示、配置持久化 |
 
-当前结果：离线单元测试 50 passed；Milvus 集成测试 1 passed（本地隔离容器）。
+当前结果：离线单元测试 50 passed；Milvus 集成测试 1 passed（本地隔离容器）；
+PR #1 的 GitHub Actions unit/integration 均通过。
 
 ### 7.2 CI 与静态检查
 
@@ -477,14 +499,14 @@ rag-cli ingest --source txt --path samples/notes.txt   # 核心仍可用
 | Connector 用 manifest + adapter | 扩展可独立目录、独立构建；核心不按类型分支 | 需要维护 manifest 契约；替代方案 setuptools entry points 更“标准”但课程环境配置更重 |
 | PDF 解析放外部 docparse 子进程 | paddle/Ollama 依赖重，隔离失败；核心保持轻量 | 部署多一个环境；替代方案进程内 import 会把重依赖带入核心 |
 | 关键词回退索引存本地 JSON | 课程规模足够、可检查、易演示 | 大规模并发/增量更新不适合；Milvus 主路径不受此限制 |
-| 不生成回答 | 课程重点是接入—索引—检索闭环；检索证据可核对 | 后续可把命中交给 LLM，但必须区分证据与生成 |
+| 生成答案必须带检索引用 | 课程重点是接入—索引—检索闭环；答案可核对 | 无证据时拒答；未配置 chat 时只返回检索证据 |
 
 ### 8.2 已知限制
 
 - 中文关键词回退分词为单字 + 二元组，未做领域词典；
 - PDF/扫描件依赖 docparse 与 Ollama，未配置时 PDF 不可用；
 - Milvus 需要 Docker 和 2.5+；嵌入模型维度必须与集合一致；
-- 未实现查询扩写/重排、流式输出、多轮对话记忆；
+- 未实现查询扩写/重排、多轮对话记忆；
 - 生成式问答依赖外部 LLM 或本地 Ollama；未配置时只能检索；
 - 未做多租户与并发写锁；
 - Markdown 表格按整块保留，未做复杂合并单元格还原；

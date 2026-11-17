@@ -4,8 +4,17 @@
 
 课程大作业项目：**RAG Connector Platform——插件化多模态文档解析与检索**。
 
-当前阶段：可运行的项目骨架已完成——CLI、Connector 注册、TXT/Markdown/PDF 接入、
-Milvus 混合检索 + BM25 回退、检索增强问答、测试与 CI 已落地；最终发行物与成员协作记录待补。
+当前阶段（2026-11）：可运行 CLI 已完成——**交互式 REPL**、**本地 API Key 管理**、
+Connector 注册、TXT/Markdown/PDF 接入、Milvus 混合检索 + BM25 回退、
+**流式**检索增强问答、测试与 CI 已落地；最终发行物与成员协作记录待补。
+
+最近更新（PR #1）：
+
+- 直接运行 `rag-cli` 进入交互模式，支持 `/search`、`/ingest`、`/model`、`/keys`；
+- `rag-cli setup` 两步配置 chat/embedding 模型，并可隐藏输入 API Key；
+- Key 可保存到项目内 `.rag/credentials.json`（0600、gitignore），环境变量优先；
+- 问答支持流式输出；`-p` 提供一次性问答模式；
+- 使用说明见 [`project/docs/USAGE.md`](project/docs/USAGE.md)。
 
 ## 目录
 
@@ -53,6 +62,8 @@ rag-cli ask "检索器如何训练"
 # 交互式 CLI（输入问题即问答，/help 查看命令）
 rag-cli
 
+# 完整用法见 project/docs/USAGE.md
+
 # 测试与检查
 pytest -q -m "not integration"
 ruff check src tests connectors
@@ -77,7 +88,9 @@ PDF/扫描件解析需要 docparse 环境；完整环境步骤见
 - 平台环境：`rag`（Python 3.11，pymilvus + sentence-transformers）
 - 解析环境：`docparse`（docparse + PyMuPDF + PaddleX）
 - Milvus：Docker，`milvusdb/milvus:v2.5.6`
-- OCR：宿主机 Ollama，`longwayxu/xiaomi-ocr-0:bf16`
+- OCR：Ollama，`longwayxu/xiaomi-ocr-0:bf16`
+- API Key：环境变量优先；`rag-cli setup` / `keys set` 可保存到项目内
+  `.rag/credentials.json`（0600、gitignore），CLI 启动时加载到当前进程
 
 配置模板见 [`已有资源/环境/.env.example`](已有资源/环境/.env.example)；
 所有变量说明见环境文档第 3 节。

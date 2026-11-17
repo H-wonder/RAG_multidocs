@@ -1,10 +1,11 @@
 # 后续优化方向与组内分工
 
 > 面向项目组其他成员。用途：明确当前已经做到哪一步、还缺什么、谁可以接手、每项工作的验收标准。
-> 当前分支：`main`；基线提交见仓库最新 commit。
-> 相关文档：[README](../README.md)、[DESIGN.md](DESIGN.md)、[环境搭建](../../已有资源/文档/07-环境搭建与依赖.md)。
+> 当前分支：`main`（已合并 PR #1）；基线提交见仓库最新 commit。
+> 相关文档：[README](../README.md)、[USAGE](USAGE.md)、[DESIGN.md](DESIGN.md)、
+> [环境搭建](../../已有资源/文档/07-环境搭建与依赖.md)。
 
-## 1. 当前基线（2026-11）
+## 1. 当前基线（2026-11-17）
 
 ### 1.1 已实现
 
@@ -25,15 +26,15 @@
 | 本地 API Key 管理 | 完成 | `rag-cli setup` / `keys set|list|unset|export`；`.rag/credentials.json`（0600、gitignored），环境变量优先 |
 | 单元测试 | 50 passed | `pytest -q -m "not integration"` |
 | Milvus 集成测试 | 1 passed（本地隔离容器） | `pytest -q -m integration` |
-| CI | unit job 已真实成功；integration job 待确认 | 仓库根 `.github/workflows/ci.yml` |
+| CI | unit/integration 均通过（PR #1） | 仓库根 `.github/workflows/ci.yml` |
 | README/设计文档/环境文档 | 已完成，需随版本更新 | `README.md`、`docs/DESIGN.docx` |
 
 ### 1.2 明确未完成
 
 - 真实 PDF / 扫描件 / OCR 全链路未在项目中跑过；
-- 真实 bge 嵌入 + 真实 DeepSeek/DashScope/OpenAI/Ollama 问答未做人工验收；
-- CI integration job 尚未看到实际绿色 run；
-- 成员贡献表、PR/Review 记录、最终 Tag/发行物未完成；
+- 本地 bge 嵌入已通过 ingest/search 实测；真实 DeepSeek/DashScope/OpenAI/Ollama
+  问答仍未做人工验收（当前无 Key）；
+- 成员贡献表、PR/Review 记录（PR #1 可先登记）、最终 Tag/发行物未完成；
 - Web 界面未实现（可选）；
 - 重排、查询扩写、增量清单、SimHash 去重未接入主流程。
 
@@ -49,7 +50,7 @@
 | P0-1 | 真实 PDF / 扫描件 / OCR 验收 | **B** | docparse 环境、Ollama | 至少 1 个原生 PDF + 1 个扫描件跑通；记录页数、chunks、是否需 OCR；失败行为符合 `CONNECTOR_UNAVAILABLE/PARSE_ERROR` |
 | P0-2 | 真实 embedding 验收（bge/DashScope） | **C** | Milvus 2.5+、模型或 Key | `rag-cli ingest` 入库；`search` 命中带 `source/page/section_path`；维度与集合一致 |
 | P0-3 | 真实 LLM 问答验收 | **C**（B 复核引用） | 任一 chat Key 或 Ollama | `rag-cli ask` 返回答案 + `[n]` 来源；无证据不调用 LLM；错误 Key 有明确提示 |
-| P0-4 | CI integration 实际运行 | **C** | GitHub Actions | Actions 出现 integration job 绿色 run；run 链接/编号写入 README/RELEASE |
+| P0-4 | CI integration 实际运行 | **C** | GitHub Actions | 已有绿色 run（PR #1）；C 补 run 链接/编号到 README/RELEASE |
 | P0-5 | 成员贡献与 Review 记录 | **B、C**（A 已有部分只确认） | Git 历史 | 每人填自己的 Commit/PR 和一次具体 Review；不能只有 LGTM |
 | P0-6 | 设计文档最终同步 | **B**（C 复核） | 代码/接口稳定 | `docs/DESIGN.docx` 与实现一致；含架构图、流程图、扩展接入示例 |
 | P0-7 | 发布 Tag/发行物 | **C** | P0-1~P0-5 | 工作区干净、测试通过、发行 ZIP 可解压运行；`release/RELEASE.md` 记录 Commit/Tag/SHA-256 |

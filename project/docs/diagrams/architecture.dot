@@ -5,8 +5,10 @@ digraph architecture {
         fillcolor="#eef3fb", color="#5b7db1"];
   edge [fontname="Noto Sans CJK SC", fontsize=9, color="#555555"];
 
-  user [label="用户\nCLI", fillcolor="#fff2cc", color="#bf9000"];
-  cli [label="CLI 适配器\n(rag-cli)", fillcolor="#fff2cc", color="#bf9000"];
+  user [label="用户\n终端", fillcolor="#fff2cc", color="#bf9000"];
+  cli [label="CLI 适配器\nrag-cli（子命令 + REPL）", fillcolor="#fff2cc", color="#bf9000"];
+  wizard [label="setup 向导\nchat + embedding", fillcolor="#fff2cc", color="#bf9000"];
+  creds [label="credentials.py\n本地 Key（0600）", fillcolor="#ededed", color="#777777"];
 
   subgraph cluster_core {
     label="Core（Python 标准库）";
@@ -47,7 +49,12 @@ digraph architecture {
   ollama [label="Ollama\nXiaomi-OCR-0", fillcolor="#fce4d6", color="#c55a11"];
   disk [label="index.json\n关键词回退持久化", shape=cylinder, fillcolor="#ededed", color="#777777"];
 
-  user -> cli [label="ingest / search"];
+  user -> cli [label="子命令 / REPL / -p"];
+  cli -> wizard [label="setup"];
+  wizard -> creds [label="保存 Key"];
+  cli -> creds [label="启动时加载（env 优先）"];
+  creds -> chat [label="Key", style=dashed];
+  creds -> embedder [label="Key", style=dashed];
   cli -> ingest [label="ingest"];
   cli -> search [label="search / ask"];
   search -> qa [label="top-k evidence"];

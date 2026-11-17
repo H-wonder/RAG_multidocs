@@ -13,6 +13,18 @@
 - 后续优化与分工：[docs/ROADMAP.md](docs/ROADMAP.md)
 - 已有资源与来源说明：[../已有资源/README.md](../已有资源/README.md)
 
+**最快体验**：
+
+```bash
+conda activate rag
+cd project
+pip install -e ".[dev,milvus]"
+rag-cli setup      # 第 1 步选 chat，第 2 步选 embedding；Key 隐藏输入
+rag-cli            # 进入交互模式，直接输入问题
+```
+
+详细步骤、命令表和常见问题见 [docs/USAGE.md](docs/USAGE.md)。
+
 ## 用户、场景与范围
 
 **谁**：需要检索课程资料的教师/学生。
@@ -96,6 +108,9 @@ cp config.example.json config.json
 # 默认 index_backend=milvus、embed_backend=local
 # 没有 Milvus 时会自动回退 keyword，并打印 WARN
 # 只跑 CI/冒烟可用 embed_backend=hashing，避免下载模型
+
+# 模型与 API Key 用向导配置（第 1 步 chat，第 2 步 embedding）
+rag-cli setup
 ```
 
 关键字段：
@@ -333,7 +348,7 @@ MIT 简洁、便于课程展示与后续复用；第三方/来源代码的许可
   `CONNECTOR_UNAVAILABLE`，不影响 TXT/Markdown；
 - 中文分词为单字 + 二元组，未做领域词典；
 - 关键词回退索引为本地 JSON，适合课程规模；Milvus 主路径由 Docker 卷持久化；
-- 生成式问答需要外部 LLM API 或本地 Ollama；未实现流式输出、多轮记忆；
+- 生成式问答需要外部 LLM API 或本地 Ollama；支持流式输出，未实现多轮记忆；
 - 未实现用户系统、权限、在线编辑、插件市场或热加载。
 
 ## 后续工作
