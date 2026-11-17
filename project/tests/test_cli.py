@@ -131,6 +131,25 @@ def test_cli_models_list_and_use(tmp_path, project_root, capsys):
     assert settings.chat_model == "deepseek-chat"
 
 
+def test_models_use_can_disable_chat(tmp_path, project_root, capsys):
+    config = _config(tmp_path, project_root)
+    settings = Settings.load(config)
+    settings.chat_provider = "deepseek"
+    settings.chat_model = "deepseek-chat"
+    settings.save(config)
+
+    code = main(
+        [
+            "models", "use", "--kind", "chat", "--provider", "none",
+            "--config", str(config),
+        ]
+    )
+    assert code == 0
+    settings = Settings.load(config)
+    assert settings.chat_provider == ""
+    assert settings.chat_model == ""
+
+
 def test_cli_ask_requires_chat_provider(tmp_path, project_root, capsys):
     config = _config(tmp_path, project_root)
     txt = tmp_path / "notes.txt"
@@ -143,6 +162,12 @@ def test_cli_ask_requires_chat_provider(tmp_path, project_root, capsys):
     assert code == 2
     assert "CONFIG_ERROR" in captured.err
     assert "notes.txt" in captured.out
+
+
+def test_main_without_subcommand_non_tty_prints_help(capsys):
+    code = main([])
+    assert code == 2
+    assert "usage" in capsys.readouterr().err.lower()
 
 
 def test_models_use_embedding_resets_provider_defaults(tmp_path, project_root, capsys):

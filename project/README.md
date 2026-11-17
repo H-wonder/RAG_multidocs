@@ -8,6 +8,7 @@
 **Milvus dense + BM25 混合检索**，Milvus 不可用时回退到本地 BM25 关键词索引。
 
 - 仓库：<https://github.com/H-wonder/RAG_multidocs>
+- 使用说明：[docs/USAGE.md](docs/USAGE.md)（安装、模型配置、Key、交互命令、FAQ）
 - 设计文档：[docs/DESIGN.md](docs/DESIGN.md)（提交版为 `docs/DESIGN.docx`）
 - 后续优化与分工：[docs/ROADMAP.md](docs/ROADMAP.md)
 - 已有资源与来源说明：[../已有资源/README.md](../已有资源/README.md)
@@ -36,6 +37,10 @@ TXT / Markdown / PDF ──► Connector ──► Document ──► Chunk ─�
 - 本地 BM25 关键词索引：Milvus 不可用时的离线回退；
 - 检索增强问答：`rag-cli ask` 把命中证据交给 OpenAI 兼容 LLM，输出答案 + 引用；
 - 模型选择：embedding/chat 均支持 provider + model 配置/命令行覆盖；
+- 交互式 CLI：直接运行 `rag-cli` 进入 REPL，支持 `/search`、`/ingest`、`/model`、
+  `/keys`、`/setup` 和流式答案；
+- 本地 API Key 管理：`rag-cli setup` / `keys set|list|unset`，保存到
+  `.rag/credentials.json`（0600、gitignore），环境变量优先；
 - 接入失败的结构化错误（`FILE_NOT_FOUND`、`EMPTY_SOURCE`、`PARSE_ERROR` 等）。
 
 **独立扩展**：
@@ -107,6 +112,7 @@ cp config.example.json config.json
 | `chat_model` | 空 | 空表示用 provider 默认模型 |
 | `rag_top_k` | 5 | 问答检索证据条数 |
 | `docparse_repo` / `docparse_python` | 空 | PDF 多模态解析 |
+| `credentials_file` | `.rag/credentials.json` | 本地 API Key 文件（0600，已 gitignore） |
 
 ### 3. 导入与检索
 
@@ -129,23 +135,34 @@ rag-cli stats
 
 ### 4. 检索增强问答
 
-API Key 只从环境变量读取，不写入配置：
+先用 `setup`（或 `models use` + `keys set`）选择 provider/模型并保存 Key：
 
 ```bash
-# 1. 查看可用 provider 和当前选择
-rag-cli models list
+# 交互式选择 chat/embedding 模型，需要时隐藏输入 API Key
+rag-cli setup
 
-# 2. 只返回检索证据，不调用 LLM
+# 也可以分步操作
+rag-cli models use --kind chat --provider deepseek --model deepseek-chat
+rag-cli keys set --provider deepseek        # 隐藏输入，保存到 .rag/credentials.json
+rag-cli models list                          # 显示 key 来源（env/file）和脱敏值
+rag-cli keys list
+rag-cli keys unset --provider deepseek       # 删除 Key
+rag-cli models use --kind chat --provider none  # 关闭生成式问答（只检索）
+```
+
+问答与检索：
+
+```bash
+# 只返回检索证据，不调用 LLM
 rag-cli ask "检索器如何训练" --no-generate
 
-# 3. 用 DeepSeek 生成答案 + 引用
-export DEEPSEEK_API_KEY=...
-rag-cli ask "检索器如何训练" --provider deepseek --model deepseek-chat
+# 生成答案 + 引用（流式）
+rag-cli ask "检索器如何训练" --stream
 
-# 4. 持久选择 chat provider/model（不保存 Key）
-rag-cli models use --kind chat --provider deepseek --model deepseek-chat
+# 一次性模式（脚本友好）
+rag-cli -p "检索器如何训练"
 
-# 5. 换 embedding provider（会提示新建 Milvus 集合）
+# 换 embedding provider（会提示新建 Milvus 集合）
 rag-cli models use --kind embedding --provider dashscope --model text-embedding-v4 --dim 1024
 ```
 
@@ -158,8 +175,33 @@ rag-cli models use --kind embedding --provider dashscope --model text-embedding-
 [1] notes.txt p0
 ```
 
-API Key 环境变量：`DEEPSEEK_API_KEY`、`DASHSCOPE_API_KEY`、`OPENAI_API_KEY`；
-Ollama 不需要 Key。Key 不写入 `config.json`。
+**API Key 的读取顺序**：已设置的 shell 环境变量 > `.rag/credentials.json`。
+`DEEPSEEK_API_KEY`、`DASHSCOPE_API_KEY`、`OPENAI_API_KEY` 均可；Ollama 不需要 Key。
+
+- 本地凭证文件权限为 `0600`，目录 `0700`，并已被 gitignore；
+- 它是明文存储，只适合课程/个人环境。共享机器上优先用环境变量或系统密钥环；
+- `rag-cli` 启动时会把文件里的 Key 加载到**当前进程**的环境变量，不会修改父 shell；
+  需要让当前 shell 也生效时执行 `eval "$(rag-cli keys export)"`；
+- Key 不会写入 `config.json`，日志和列表只显示脱敏值。
+
+### 5. 交互式 CLI
+
+直接运行 `rag-cli` 进入 REPL（`rag-cli repl` 等价），输入问题即可检索问答；
+以 `/` 开头的是命令：
+
+```bash
+rag-cli
+rag> 检索器如何训练
+rag> /search 表格
+rag> /ingest txt samples/notes.txt
+rag> /model chat deepseek deepseek-chat
+rag> /keys set deepseek
+rag> /setup
+rag> /help
+```
+
+完整命令见 `/help`。单条命令模式（`rag-cli ingest/search/ask/...`）保持兼容，
+适合脚本和 CI。
 
 示例检索输出：
 
@@ -170,7 +212,7 @@ Ollama 不需要 Key。Key 不写入 `config.json`。
     表格必须整块保留。按字符数切会把一行数据切成两半，检索结果无法阅读。
 ```
 
-### 4. 测试
+### 6. 测试
 
 ```bash
 pytest -q -m "not integration"       # 离线单元测试

@@ -22,6 +22,7 @@ milvus_data/
 已有资源/样例/demo_index.json
 project/config.json
 project/data/
+project/.rag/
 
 # IDE / OS
 .idea/

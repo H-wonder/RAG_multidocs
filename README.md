@@ -12,6 +12,7 @@ Milvus 混合检索 + BM25 回退、检索增强问答、测试与 CI 已落地�
 | 路径 | 内容 |
 | --- | --- |
 | [`project/`](project/) | 可运行产品：CLI、Core、内置 Connector、独立 Markdown 扩展、测试、CI |
+| [`project/docs/USAGE.md`](project/docs/USAGE.md) | 使用说明：安装、模型与 Key、交互命令、FAQ |
 | [`project/docs/DESIGN.docx`](project/docs/DESIGN.docx) | 系统设计文档（提交版） |
 | [`project/docs/ROADMAP.md`](project/docs/ROADMAP.md) | 后续优化方向、P0/P1/P2 分工与验收标准 |
 | [`已有资源/代码/`](已有资源/代码/) | 文档模型、切块、去重、BM25 索引、Milvus 混合检索、docparse Connector、插件注册 |
@@ -43,9 +44,14 @@ rag-cli ingest --source connector.markdown --path samples/markdown
 rag-cli search "表格"
 rag-cli connectors list
 
-# 检索增强问答（API Key 只从环境变量读取）
-export DEEPSEEK_API_KEY=...
-rag-cli ask "检索器如何训练" --provider deepseek --model deepseek-chat
+# 检索增强问答：选择模型并把 Key 保存到本项目（.rag/，0600 + gitignore）
+rag-cli setup
+# 也可以分步：rag-cli models use --kind chat --provider deepseek --model deepseek-chat
+#             rag-cli keys set --provider deepseek
+rag-cli ask "检索器如何训练"
+
+# 交互式 CLI（输入问题即问答，/help 查看命令）
+rag-cli
 
 # 测试与检查
 pytest -q -m "not integration"

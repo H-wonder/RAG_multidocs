@@ -263,8 +263,11 @@ question
 - 没有命中证据时**不调用 LLM**，直接返回“没有检索到相关依据”；
 - 系统提示要求只依据证据回答、用 `[n]` 引用、证据不足时明确说明；
 - 返回的 `citations` 包含 `index/chunk_id/doc_id/source/page/section_path`；
-- API Key 只从环境变量读取：`DEEPSEEK_API_KEY`、`DASHSCOPE_API_KEY`、
-  `OPENAI_API_KEY`；Ollama 不需要 Key；
+- API Key 读取顺序：已设置的 shell 环境变量（`DEEPSEEK_API_KEY`、
+  `DASHSCOPE_API_KEY`、`OPENAI_API_KEY`）> 本地 `.rag/credentials.json`；
+  CLI 启动时把本地文件加载到当前进程，Ollama 不需要 Key；
+- 本地凭证文件权限 0600、目录 0700、已 gitignore，只存明文密钥；
+  `rag-cli keys list` 只显示脱敏值和来源；
 - provider/model 可通过 `--provider/--model` 临时覆盖，或
   `rag-cli models use` 写入 `config.json`（不写 Key）。
 
@@ -441,7 +444,7 @@ rag-cli ingest --source txt --path samples/notes.txt   # 核心仍可用
 | 问答 | FakeChat + 命中证据 | 证据进入 prompt、答案带引用、无证据不调用模型 |
 | 模型选择 | provider 列表/Key 检查/models use | 环境变量 Key、配置持久化 |
 
-当前结果：离线单元测试 25 passed；Milvus 集成测试 1 passed（本地隔离容器）。
+当前结果：离线单元测试 50 passed；Milvus 集成测试 1 passed（本地隔离容器）。
 
 ### 7.2 CI 与静态检查
 
@@ -469,7 +472,7 @@ rag-cli ingest --source txt --path samples/notes.txt   # 核心仍可用
 | Milvus 混合检索为主 + 关键词回退 | 语义召回 + 词面精确匹配；Milvus 故障时仍可演示 | 多一个 Docker 服务；维度/模型需与集合一致；替代方案纯 BM25 更简单但召回弱 |
 | 嵌入模型可替换（bge/DashScope/hashing） | 本地离线、远程效果、CI 冒烟各有用途 | 换模型必须新建集合；维度不能混用 |
 | 关键词 BM25 保留为回退 | 无外部依赖、可复现、测试稳定 | 回退结果语义能力弱，需在输出中说明 backend |
-| API Key 只从环境变量读取 | 避免把密钥写入仓库/配置；CI 友好 | 用户需设置环境变量；不支持多用户密钥管理 |
+| API Key 环境变量优先 + 可选本地凭证 | CI 仍可只用环境变量；交互使用可保存到 0600 本地文件 | 本地文件是明文；共享机器应优先环境变量或系统密钥环 |
 | provider 预设 + 命令行覆盖 | 用户可换模型/服务，不绑定单一厂商 | 自定义模型需正确填 dim/base_url |
 | Connector 用 manifest + adapter | 扩展可独立目录、独立构建；核心不按类型分支 | 需要维护 manifest 契约；替代方案 setuptools entry points 更“标准”但课程环境配置更重 |
 | PDF 解析放外部 docparse 子进程 | paddle/Ollama 依赖重，隔离失败；核心保持轻量 | 部署多一个环境；替代方案进程内 import 会把重依赖带入核心 |

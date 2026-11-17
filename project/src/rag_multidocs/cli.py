@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import argparse
+import getpass
 import json
+import os
+import shlex
 import sys
 from dataclasses import dataclass
 
@@ -11,24 +14,38 @@ from .config import Settings
 from .connectors.pdf import DocparseOptions, PdfConnector
 from .connectors.txt import TxtConnector
 from .contracts import ConnectorError
+from .credentials import (
+    apply_keys,
+    credentials_path,
+    load_keys,
+    mask,
+    permission_warning,
+    set_key,
+    source_of,
+    unset_key,
+)
 from .index import KeywordIndex
 from .ingest import IngestService
 from .llm import answer_with_evidence, build_chat_model
 from .providers import (
     chat_provider,
     embedding_provider,
+    env_var_for_provider,
     key_available,
     list_chat_providers,
     list_embedding_providers,
+    providers_for_env,
 )
 from .registry import ConnectorRegistry
 from .search import SearchService
+from .wizard import run_setup
 
 
 def add_config(parser: argparse.ArgumentParser) -> None:
+    # SUPPRESS 让子命令未显式传 --config 时保留顶层解析出的值
     parser.add_argument(
         "--config",
-        default="config.json",
+        default=argparse.SUPPRESS,
         help="配置文件路径（默认 config.json；不存在则使用默认值）",
     )
 
@@ -310,14 +327,20 @@ def cmd_ask(args: argparse.Namespace) -> int:
 
     if not settings.chat_provider:
         print(
-            "[CONFIG_ERROR] 未配置 chat provider。请用 --provider 指定，"
-            "或设置 CHAT_PROVIDER；API Key 只从环境变量读取。"
-            "示例：export DEEPSEEK_API_KEY=... && "
-            "rag-cli ask \"问题\" --provider deepseek --model deepseek-chat",
+            "[CONFIG_ERROR] 未配置 chat provider。运行 `rag-cli setup` 选择模型，"
+            "或用 --provider 指定；API Key 可用 `rag-cli keys set --provider "
+            "deepseek` 保存到本项目，也支持 export DEEPSEEK_API_KEY=... 临时注入。",
             file=sys.stderr,
         )
         _print_hits(hits)
         return 2
+
+    stream = bool(getattr(args, "stream", False)) and not args.json
+    on_token = None
+    if stream:
+        print("答案：")
+        sys.stdout.flush()
+        on_token = lambda token: print(token, end="", flush=True)  # noqa: E731
 
     try:
         chat = build_chat_model(
@@ -327,12 +350,12 @@ def cmd_ask(args: argparse.Namespace) -> int:
             temperature=settings.chat_temperature,
             max_tokens=settings.chat_max_tokens,
         )
-        result = answer_with_evidence(args.query, hits, chat)
+        result = answer_with_evidence(args.query, hits, chat, on_token=on_token)
     except ValueError as exc:
         print(f"[CONFIG_ERROR] {exc}", file=sys.stderr)
         return 2
     except RuntimeError as exc:
-        print(f"[LLM_ERROR] {exc}", file=sys.stderr)
+        print(f"\n[LLM_ERROR] {exc}", file=sys.stderr)
         return 2
 
     if args.json:
@@ -350,8 +373,11 @@ def cmd_ask(args: argparse.Namespace) -> int:
         ))
         return 0
 
-    print("答案：")
-    print(result["answer"])
+    if stream:
+        print()
+    else:
+        print("答案：")
+        print(result["answer"])
     print("\n来源：")
     for citation in result["citations"]:
         section = f" §{citation['section_path']}" if citation["section_path"] else ""
@@ -395,7 +421,7 @@ def cmd_models_list(args: argparse.Namespace) -> int:
         mark = "*" if row["selected"] else " "
         model = row.get("default_model", "")
         dim = f" dim={row['default_dim']}" if row["category"] == "embedding" else ""
-        key = row.get("api_key_env") or "无需 Key"
+        key = _key_label(row.get("api_key_env", ""))
         print(
             f"[{mark}] {row['category']:9} {row['provider']:10} {model}{dim}"
             f"  key={key}  available={row['available']}"
@@ -403,8 +429,26 @@ def cmd_models_list(args: argparse.Namespace) -> int:
     return 0
 
 
+def _key_label(env_name: str) -> str:
+    if not env_name:
+        return "无需 Key"
+    source = source_of(env_name)
+    value = mask(os.environ.get(env_name, ""))
+    if not source:
+        return f"{env_name}[未设置]"
+    return f"{env_name}[{source}] {value}"
+
+
 def cmd_models_use(args: argparse.Namespace) -> int:
     settings = Settings.load(args.config)
+    if args.kind == "chat" and args.provider.lower() in ("none", "off", "clear"):
+        settings.chat_provider = ""
+        settings.chat_model = ""
+        settings.chat_base_url = ""
+        path = settings.save(args.config)
+        print("chat -> 已关闭（仅检索，不调用 LLM）")
+        print(f"config -> {path}")
+        return 0
     try:
         if args.kind == "embedding":
             from .providers import embedding_provider
@@ -437,19 +481,178 @@ def cmd_models_use(args: argparse.Namespace) -> int:
     path = settings.save(args.config)
     preset_key = preset.api_key_env
     if preset_key:
-        print(f"API Key 只从环境变量读取：export {preset_key}=...")
+        print(
+            f"填入 API Key：rag-cli keys set --provider {preset.name}"
+            f"（或 export {preset_key}=...，环境变量优先）"
+        )
     else:
         print("该 provider 不需要 API Key。")
     print(f"config -> {path}")
     return 0
 
 
+def _key_target(args: argparse.Namespace) -> str:
+    if getattr(args, "env", None):
+        return args.env.strip().upper()
+    if getattr(args, "provider", None):
+        return env_var_for_provider(args.provider)
+    raise ValueError("请用 --provider 或 --env 指定要操作的 Key")
+
+
+def cmd_keys_list(args: argparse.Namespace) -> int:
+    settings = Settings.load(args.config)
+    path = credentials_path(settings.credentials_file)
+    stored = load_keys(settings.credentials_file)
+    env_names = sorted(
+        set(stored)
+        | {
+            item["api_key_env"]
+            for item in (*list_chat_providers(), *list_embedding_providers())
+            if item.get("api_key_env")
+        }
+    )
+    rows = [
+        {
+            "env": name,
+            "source": source_of(name) or "",
+            "masked": mask(os.environ.get(name, "")),
+            "providers": providers_for_env(name),
+        }
+        for name in env_names
+    ]
+    if args.json:
+        print(json.dumps(
+            {"credentials_file": str(path), "keys": rows},
+            ensure_ascii=False,
+            indent=2,
+        ))
+        return 0
+
+    print(f"credentials: {path}")
+    warning = permission_warning(settings.credentials_file)
+    if warning:
+        print(f"[WARN] {warning}", file=sys.stderr)
+    if not rows:
+        print("未保存任何 API Key。")
+        return 0
+    for row in rows:
+        providers = ", ".join(row["providers"]) or "-"
+        print(
+            f"{row['env']:22} {row['source'] or '-':6} {row['masked'] or '-':16}"
+            f" ({providers})"
+        )
+    if not any(row["source"] for row in rows):
+        print("提示：rag-cli keys set --provider deepseek 可保存 Key 到本项目。")
+    return 0
+
+
+def cmd_keys_set(args: argparse.Namespace) -> int:
+    settings = Settings.load(args.config)
+    try:
+        env_name = _key_target(args)
+    except ValueError as exc:
+        print(f"[CONFIG_ERROR] {exc}", file=sys.stderr)
+        return 2
+    value = args.value
+    if value is None:
+        if not sys.stdin.isatty():
+            print(
+                "[CONFIG_ERROR] 非交互环境请用 --value 传入 Key",
+                file=sys.stderr,
+            )
+            return 2
+        try:
+            value = getpass.getpass(f"{env_name}（输入不回显）: ")
+        except (EOFError, KeyboardInterrupt):
+            print("\n未输入，已取消。", file=sys.stderr)
+            return 2
+    try:
+        path = set_key(env_name, value, settings.credentials_file)
+    except ValueError as exc:
+        print(f"[CONFIG_ERROR] {exc}", file=sys.stderr)
+        return 2
+    print(f"已保存 {env_name}={mask(value.strip())} -> {path}（权限 600）")
+    print(
+        "提示：环境变量优先于本地凭证；如需当前 shell 也生效，"
+        "可运行 eval \"$(rag-cli keys export)\"。"
+    )
+    return 0
+
+
+def cmd_keys_unset(args: argparse.Namespace) -> int:
+    settings = Settings.load(args.config)
+    try:
+        env_name = _key_target(args)
+    except ValueError as exc:
+        print(f"[CONFIG_ERROR] {exc}", file=sys.stderr)
+        return 2
+    if unset_key(env_name, settings.credentials_file):
+        print(f"已删除 {env_name}")
+    else:
+        print(f"{env_name} 未保存，无需删除")
+    if source_of(env_name) == "env":
+        print(
+            f"注意：当前 shell 仍设置了 {env_name}，环境变量优先于本地凭证。"
+        )
+    return 0
+
+
+def cmd_keys_export(args: argparse.Namespace) -> int:
+    settings = Settings.load(args.config)
+    keys = load_keys(settings.credentials_file)
+    if not keys:
+        print("# 没有保存的 API Key", file=sys.stderr)
+        return 0
+    print(
+        "# 警告：以下内容是明文 API Key，只应通过 "
+        "eval \"$(rag-cli keys export)\" 使用",
+        file=sys.stderr,
+    )
+    for name in sorted(keys):
+        print(f"export {name}={shlex.quote(keys[name])}")
+    return 0
+
+
+def cmd_keys_path(args: argparse.Namespace) -> int:
+    settings = Settings.load(args.config)
+    print(credentials_path(settings.credentials_file))
+    return 0
+
+
+def cmd_setup(args: argparse.Namespace) -> int:
+    settings = Settings.load(args.config)
+    return run_setup(settings, args.config)
+
+
+def cmd_repl(args: argparse.Namespace) -> int:
+    from .repl import run_repl
+
+    return run_repl(args.config)
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="rag-cli",
-        description="插件化多模态文档接入与检索（RAG Multidocs）",
+        description=(
+            "插件化多模态文档接入与检索（RAG Multidocs）。"
+            "直接运行 rag-cli 进入交互模式。"
+        ),
     )
-    sub = parser.add_subparsers(dest="command", required=True)
+    parser.add_argument(
+        "--config",
+        default="config.json",
+        help="配置文件路径（默认 config.json）",
+    )
+    parser.add_argument(
+        "-p", "--print", dest="print_query", metavar="QUERY",
+        help="一次性提问并输出答案（等同 ask，可配合 --provider/--model）",
+    )
+    parser.add_argument("--provider", help="一次性提问的 chat provider")
+    parser.add_argument("--model", help="一次性提问的模型名")
+    parser.add_argument(
+        "--no-stream", action="store_true", help="一次性提问时关闭流式输出"
+    )
+    sub = parser.add_subparsers(dest="command")
 
     ingest = sub.add_parser("ingest", help="导入 TXT/PDF/Markdown 等数据源")
     ingest.add_argument("--source", required=True, help="Connector 名称，如 txt/pdf/connector.markdown")
@@ -475,6 +678,7 @@ def build_parser() -> argparse.ArgumentParser:
     ask.add_argument("--model", help="chat 模型名")
     ask.add_argument("--base-url", dest="base_url", help="覆盖 chat base URL")
     ask.add_argument("--no-generate", action="store_true", help="只返回检索证据，不调用 LLM")
+    ask.add_argument("--stream", action="store_true", help="流式打印答案")
     ask.add_argument("--json", action="store_true")
     add_config(ask)
     ask.set_defaults(func=cmd_ask)
@@ -520,12 +724,89 @@ def build_parser() -> argparse.ArgumentParser:
     add_config(stats)
     stats.set_defaults(func=cmd_stats)
 
+    keys = sub.add_parser("keys", help="本地 API Key 管理（0600，gitignored）")
+    keys_sub = keys.add_subparsers(dest="keys_command", required=True)
+
+    keys_list = keys_sub.add_parser("list", help="查看已保存的 Key（脱敏）")
+    keys_list.add_argument("--json", action="store_true")
+    add_config(keys_list)
+    keys_list.set_defaults(func=cmd_keys_list)
+
+    key_help = {
+        "set": "保存某个 provider 的 API Key",
+        "unset": "删除已保存的 API Key",
+    }
+    for action in ("set", "unset"):
+        key_action = keys_sub.add_parser(action, help=key_help[action])
+        group = key_action.add_mutually_exclusive_group(required=True)
+        group.add_argument("--provider", help="provider 名，如 deepseek/dashscope/openai")
+        group.add_argument("--env", help="直接指定环境变量名，如 DEEPSEEK_API_KEY")
+        if action == "set":
+            key_action.add_argument(
+                "--value",
+                help="（不推荐，会进入 shell 历史）直接传 Key；省略则隐藏输入",
+            )
+        add_config(key_action)
+        key_action.set_defaults(
+            func=cmd_keys_set if action == "set" else cmd_keys_unset
+        )
+
+    keys_export = keys_sub.add_parser(
+        "export", help="输出 export 语句，供 eval 到当前 shell（含明文）"
+    )
+    add_config(keys_export)
+    keys_export.set_defaults(func=cmd_keys_export)
+
+    keys_path = keys_sub.add_parser("path", help="显示凭证文件路径")
+    add_config(keys_path)
+    keys_path.set_defaults(func=cmd_keys_path)
+
+    setup = sub.add_parser(
+        "setup", help="交互式配置 chat + embedding 模型并填入 API Key"
+    )
+    add_config(setup)
+    setup.set_defaults(func=cmd_setup)
+
+    repl = sub.add_parser("repl", help="进入交互模式（等同直接运行 rag-cli）")
+    add_config(repl)
+    repl.set_defaults(func=cmd_repl)
+
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+    config_path = getattr(args, "config", None) or "config.json"
+
+    try:
+        apply_keys(Settings.load(config_path).credentials_file)
+    except ValueError as exc:
+        print(f"[WARN] {exc}", file=sys.stderr)
+
+    if getattr(args, "print_query", None) is not None:
+        ask_args = argparse.Namespace(
+            config=config_path,
+            query=args.print_query,
+            top_k=None,
+            doc_id=None,
+            provider=args.provider,
+            model=args.model,
+            base_url=None,
+            no_generate=False,
+            json=False,
+            stream=not args.no_stream and sys.stdout.isatty(),
+        )
+        return cmd_ask(ask_args)
+
+    if args.command is None:
+        if not sys.stdin.isatty():
+            parser.print_help(sys.stderr)
+            return 2
+        from .repl import run_repl
+
+        return run_repl(config_path)
+
     try:
         return args.func(args)
     except ConnectorError as exc:
