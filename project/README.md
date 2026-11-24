@@ -91,7 +91,8 @@ source .venv/bin/activate
 pip install -e ".[dev]"
 ```
 
-Milvus 先启动：
+Milvus 先启动（首次创建容器见
+[../已有资源/文档/07-环境搭建与依赖.md 第 4.2 节](../已有资源/文档/07-环境搭建与依赖.md)）：
 
 ```bash
 docker start milvus-standalone

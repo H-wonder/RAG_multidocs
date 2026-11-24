@@ -86,7 +86,15 @@ Milvus 是主检索，但必须保留关键词回退，保证演示不依赖单�
 bash 环境/check_env.sh        # 只检查环境，不安装
 
 conda activate rag
-cd 已有资源/代码
+
+# 产品（project/）
+cd project
+python -m pytest -q -m "not integration"
+# 57 passed, 1 deselected
+rag-cli connectors list       # txt builtin + pdf/connector.markdown/connector.html
+
+# 资源包（已有资源/代码）
+cd ../已有资源/代码
 python -m pytest -q
 # 37 passed
 
