@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from .index import KeywordIndex
+from ..index import KeywordIndex
 
 
 class SearchService:

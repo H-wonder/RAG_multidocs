@@ -22,7 +22,7 @@ from html.parser import HTMLParser
 from pathlib import Path
 from typing import Iterable
 
-from .model import Chunk, Document, chunk_id
+from ..model import Chunk, Document, chunk_id
 
 DEFAULT_MAX_TOKENS = 480
 DEFAULT_OVERLAP_TOKENS = 60

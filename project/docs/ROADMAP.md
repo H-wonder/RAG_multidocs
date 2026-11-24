@@ -3,7 +3,7 @@
 > 面向项目组其他成员。用途：明确当前已经做到哪一步、还缺什么、谁可以接手、每项工作的验收标准。
 > 当前分支：`main`（已合并 PR #1）；基线提交见仓库最新 commit。
 > 相关文档：[README](../README.md)、[USAGE](USAGE.md)、[DESIGN.md](DESIGN.md)、
-> [环境搭建](../../已有资源/文档/07-环境搭建与依赖.md)。
+> [拓展方案](EXPANSION_PLAN.md)、[环境搭建](../../已有资源/文档/07-环境搭建与依赖.md)。
 
 ## 1. 当前基线（2026-11-17）
 
@@ -16,11 +16,11 @@
 | 独立 PDF/扫描件/Office 插件 | 插件化完成；样例原生 PDF/DOCX/PNG OCR 已实测 | `connectors/connector_pdf/`，子进程调用 docparse |
 | 独立 Markdown 目录 Connector | 完成 | `connectors/connector_markdown/`，manifest + adapter |
 | 独立 HTML 目录 Connector | 完成 | `connectors/connector_html/`，标准库 html.parser |
-| Connector 契约/注册/错误模型 | 完成 | `contracts.py`、`registry.py` |
-| Milvus 混合检索（dense + BM25） | 完成并通过本地集成测试 | `index_milvus.py`、`milvus_store.py` |
-| 关键词 BM25 回退 | 完成 | `index.py`，Milvus 不可用时自动回退 |
-| Embedding provider 选择 | 完成 | `providers.py`、`embedding.py`；local/hashing/dashscope/openai/ollama |
-| 检索增强问答 `rag-cli ask` | 完成，真实 API 待验证 | `llm.py`；证据 prompt + `[n]` 引用 |
+| Connector 契约/注册/错误模型 | 完成 | `contracts.py`、`connectors/registry.py` |
+| Milvus 混合检索（dense + BM25） | 完成并通过本地集成测试 | `index/milvus.py`、`index/milvus_store.py` |
+| 关键词 BM25 回退 | 完成 | `index/keyword.py`，Milvus 不可用时自动回退 |
+| Embedding provider 选择 | 完成 | `providers/presets.py`、`providers/embedding.py`；local/hashing/dashscope/openai/ollama |
+| 检索增强问答 `rag-cli ask` | 完成，真实 API 待验证 | `qa/llm.py`；证据 prompt + `[n]` 引用 |
 | Chat provider 选择 | 完成 | deepseek/dashscope/openai/ollama；Key 支持环境变量或本地凭证文件 |
 | CLI | 完成 | `ingest/search/ask/models/docs/connectors/stats` |
 | 交互式 CLI | 完成 | 直接运行 `rag-cli` 进入 REPL；`/search`、`/ingest`、`/model`、`/keys`、`/setup`、流式问答 |

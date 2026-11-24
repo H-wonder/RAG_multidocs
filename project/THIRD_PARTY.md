@@ -7,16 +7,16 @@
 | 本项目文件 | 来源 | 处理 |
 | --- | --- | --- |
 | `src/rag_multidocs/model.py` | DocFlow 的 docparse IR / Chunk | 重写为课程可用的统一模型 |
-| `src/rag_multidocs/chunking.py` | `任务二/docflow/chunker.py` | 去掉全局配置依赖，参数化；增加 TXT/Markdown 切块 |
-| `src/rag_multidocs/index.py` | 新写 | BM25 关键词索引，纯标准库 |
-| `src/rag_multidocs/registry.py` | `skills/registry.py` | 改为通用 Connector 注册表 |
+| `src/rag_multidocs/ingestion/chunking.py` | `任务二/docflow/chunker.py` | 去掉全局配置依赖，参数化；增加 TXT/Markdown 切块 |
+| `src/rag_multidocs/index/keyword.py` | 新写 | BM25 关键词索引，纯标准库 |
+| `src/rag_multidocs/connectors/registry.py` | `skills/registry.py` | 改为通用 Connector 注册表 |
 | `connectors/connector_pdf/adapter.py` | `docparse_connector.py` | 改为独立插件，薄封装 docparse CLI |
-| `src/rag_multidocs/index_milvus.py` | DocFlow 的 Milvus 检索设计 | 包成 `IndexBackend`，补 list_docs/persist |
-| `src/rag_multidocs/milvus_store.py` | `任务二/docflow/services/rag_service.py` | 抽成可嵌入的 Milvus 混合检索类 |
-| `src/rag_multidocs/embedding.py` | `rag_service.py` 的嵌入函数 | Embedder 协议 + bge/DashScope/hashing |
+| `src/rag_multidocs/index/milvus.py` | DocFlow 的 Milvus 检索设计 | 包成 `IndexBackend`，补 list_docs/persist |
+| `src/rag_multidocs/index/milvus_store.py` | `任务二/docflow/services/rag_service.py` | 抽成可嵌入的 Milvus 混合检索类 |
+| `src/rag_multidocs/providers/embedding.py` | `rag_service.py` 的嵌入函数 | Embedder 协议 + bge/DashScope/hashing |
 | `src/rag_multidocs/connectors/txt.py` | 新写 | 内置 TXT Connector |
-| `src/rag_multidocs/providers.py` | 新写 | embedding/chat provider 预设与环境变量 Key 读取 |
-| `src/rag_multidocs/llm.py` | 新写 | OpenAI 兼容 Chat、证据 prompt、引用式答案 |
+| `src/rag_multidocs/providers/presets.py` | 新写 | embedding/chat provider 预设与环境变量 Key 读取 |
+| `src/rag_multidocs/qa/llm.py` | 新写 | OpenAI 兼容 Chat、证据 prompt、引用式答案 |
 
 本次新增的 CLI、TXT 内置 Connector、Markdown/PDF/HTML 插件、错误模型、测试、CI、
 设计文档和 release 模板不计入既有代码。

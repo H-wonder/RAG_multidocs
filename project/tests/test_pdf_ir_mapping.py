@@ -1,6 +1,6 @@
 import json
 
-from rag_multidocs.chunking import chunk_docparse_ir
+from rag_multidocs.ingestion.chunking import chunk_docparse_ir
 
 
 def test_docparse_ir_maps_to_document_and_structured_chunks(project_root, load_plugin):

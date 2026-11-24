@@ -10,11 +10,11 @@ import shlex
 import sys
 from dataclasses import asdict, dataclass
 
-from .config import Settings
-from .connectors.txt import TxtConnector
-from .contracts import ConnectorError
-from .discovery import DiscoveryError, discover_models
-from .credentials import (
+from ..config import Settings
+from ..connectors.txt import TxtConnector
+from ..contracts import ConnectorError
+from ..providers.discovery import DiscoveryError, discover_models
+from ..credentials import (
     apply_keys,
     credentials_path,
     load_keys,
@@ -24,10 +24,10 @@ from .credentials import (
     source_of,
     unset_key,
 )
-from .index import KeywordIndex
-from .ingest import IngestService
-from .llm import answer_with_evidence, build_chat_model
-from .providers import (
+from ..index import KeywordIndex
+from ..ingestion import IngestService
+from ..qa.llm import answer_with_evidence, build_chat_model
+from ..providers import (
     chat_provider,
     embedding_provider,
     env_var_for_provider,
@@ -36,8 +36,8 @@ from .providers import (
     list_embedding_providers,
     providers_for_env,
 )
-from .registry import ConnectorRegistry
-from .search import SearchService
+from ..connectors.registry import ConnectorRegistry
+from ..retrieval import SearchService
 from .wizard import run_setup
 
 
@@ -76,8 +76,8 @@ def _build_index(settings: Settings):
         )
 
     try:
-        from .embedding import build_embedder
-        from .index_milvus import MilvusIndex
+        from ..providers.embedding import build_embedder
+        from ..index.milvus import MilvusIndex
 
         index = MilvusIndex(
             build_embedder(
@@ -473,7 +473,7 @@ def cmd_models_use(args: argparse.Namespace) -> int:
         return 0
     try:
         if args.kind == "embedding":
-            from .providers import embedding_provider
+            from ..providers import embedding_provider
 
             preset = embedding_provider(args.provider)
             settings.embed_backend = args.provider

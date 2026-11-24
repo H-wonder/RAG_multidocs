@@ -24,6 +24,7 @@ Connector 注册、**TXT 内置 + Markdown/PDF/HTML 独立插件**、Milvus 混�
 | [`project/docs/USAGE.md`](project/docs/USAGE.md) | 使用说明：安装、模型与 Key、交互命令、FAQ |
 | [`project/docs/DESIGN.docx`](project/docs/DESIGN.docx) | 系统设计文档（提交版） |
 | [`project/docs/ROADMAP.md`](project/docs/ROADMAP.md) | 后续优化方向、P0/P1/P2 分工与验收标准 |
+| [`project/docs/EXPANSION_PLAN.md`](project/docs/EXPANSION_PLAN.md) | RAG 链路与交互体验两条拓展主线、模块改造和里程碑 |
 | [`project/samples/campus-corpus/`](project/samples/campus-corpus/) | 校园图书馆/RAG 领域多格式测试集：TXT、Markdown、HTML、PDF、PNG、DOCX |
 | [`已有资源/代码/`](已有资源/代码/) | 文档模型、切块、去重、BM25 索引、Milvus 混合检索、docparse Connector、插件注册 |
 | [`已有资源/文档/`](已有资源/文档/) | 流水线、IR、切块/去重、Milvus、课程复用映射、来源许可、环境搭建 |

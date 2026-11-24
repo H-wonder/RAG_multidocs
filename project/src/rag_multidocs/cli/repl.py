@@ -8,8 +8,8 @@ import shlex
 import sys
 from pathlib import Path
 
-from .config import Settings
-from .credentials import (
+from ..config import Settings
+from ..credentials import (
     credentials_path,
     mask,
     permission_warning,
@@ -17,9 +17,9 @@ from .credentials import (
     source_of,
     unset_key,
 )
-from .discovery import DiscoveryError, discover_models
-from .llm import answer_with_evidence, build_chat_model
-from .providers import (
+from ..providers.discovery import DiscoveryError, discover_models
+from ..qa.llm import answer_with_evidence, build_chat_model
+from ..providers import (
     chat_provider,
     embedding_provider,
     env_var_for_provider,
@@ -136,7 +136,7 @@ class Session:
                     "正在加载索引与嵌入模型（首次可能需要几秒）...",
                     file=sys.stderr,
                 )
-            from .cli import build_runtime
+            from .app import build_runtime
 
             runtime = build_runtime(self.settings)
             if runtime.warning:

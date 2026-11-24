@@ -95,23 +95,23 @@ PDF 插件 ──子进程──► docparse conda env ──loopback──► O
 
 | 模块 | 职责 | 依赖 |
 | --- | --- | --- |
-| `cli.py` | 参数解析、结果展示、退出码；构建 registry context | Core、内置 Txt |
-| `ingest.py` | 调用 Connector、切块、写入索引 | 契约、Chunker、Index |
-| `search.py` | 查询索引并返回命中 | Index |
-| `registry.py` | 按名称发现/加载内置与插件 Connector；传公共 context | 契约、manifest |
+| `cli/app.py` | 参数解析、结果展示、退出码；构建 registry context | Core、内置 Txt |
+| `ingestion/service.py` | 调用 Connector、切块、写入索引 | 契约、Chunker、Index |
+| `retrieval/search.py` | 查询索引并返回命中 | Index |
+| `connectors/registry.py` | 按名称发现/加载内置与插件 Connector；传公共 context | 契约、manifest |
 | `contracts.py` | `ConnectorConfig/Result/Issue/Error` 公开契约 | 无 |
 | `model.py` | `Document`、`Chunk`、稳定 id | 标准库 |
-| `chunking.py` | TXT/Markdown/IR 切块 | `model` |
-| `index.py` | KeywordIndex：BM25、持久化、文档汇总 | `model` |
-| `index_milvus.py` | MilvusIndex：dense+BM25、按 doc 先删后插 | `milvus_store`、`embedding` |
-| `milvus_store.py` | Milvus schema/集合/混合检索封装 | pymilvus（可选） |
-| `embedding.py` | Embedder 协议与 bge/DashScope/OpenAI/Ollama/hashing 实现 | sentence-transformers / 标准库 |
-| `providers.py` | embedding/chat provider 预设、Key 环境变量映射 | 标准库 |
-| `discovery.py` | 从 OpenAI 兼容 `/models` / Ollama `/api/tags` 动态发现模型 | urllib，标准库 |
+| `ingestion/chunking.py` | TXT/Markdown/IR 切块 | `model` |
+| `index/keyword.py` | KeywordIndex：BM25、持久化、文档汇总 | `model` |
+| `index/milvus.py` | MilvusIndex：dense+BM25、按 doc 先删后插 | `milvus_store`、`embedding` |
+| `index/milvus_store.py` | Milvus schema/集合/混合检索封装 | pymilvus（可选） |
+| `providers/embedding.py` | Embedder 协议与 bge/DashScope/OpenAI/Ollama/hashing 实现 | sentence-transformers / 标准库 |
+| `providers/presets.py` | embedding/chat provider 预设、Key 环境变量映射 | 标准库 |
+| `providers/discovery.py` | 从 OpenAI 兼容 `/models` / Ollama `/api/tags` 动态发现模型 | urllib，标准库 |
 | `credentials.py` | 本地 Key 文件读写、0600 权限、脱敏、启动时加载 | 标准库 |
-| `llm.py` | OpenAI 兼容 Chat、证据 prompt、引用式答案、SSE 流式 | 标准库 |
-| `repl.py` | 交互式会话、斜杠命令、历史记录、流式渲染 | 标准库 readline |
-| `wizard.py` | `setup` 两步向导（chat/embedding + Key） | 标准库 |
+| `qa/llm.py` | OpenAI 兼容 Chat、证据 prompt、引用式答案、SSE 流式 | 标准库 |
+| `cli/repl.py` | 交互式会话、斜杠命令、历史记录、流式渲染 | 标准库 readline |
+| `cli/wizard.py` | `setup` 两步向导（chat/embedding + Key） | 标准库 |
 | `connectors/txt.py` | 内置 TXT 接入 | 契约、`model` |
 | `connectors/connector_markdown/` | 独立 Markdown 插件 | 契约、`model` |
 | `connectors/connector_pdf/` | 独立 PDF/docparse 插件 | 契约、`model`、外部 docparse |

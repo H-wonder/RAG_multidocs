@@ -25,7 +25,7 @@ from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Iterable
 
-from .model import Chunk
+from ..model import Chunk
 
 _CJK_RUN = re.compile(r"[一-鿿]+")
 _WORD = re.compile(r"[a-z0-9]+")

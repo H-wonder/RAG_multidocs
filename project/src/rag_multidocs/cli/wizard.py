@@ -7,9 +7,9 @@ import os
 import sys
 from pathlib import Path
 
-from .config import Settings
-from .credentials import set_key
-from .providers import (
+from ..config import Settings
+from ..credentials import set_key
+from ..providers import (
     CHAT_PROVIDERS,
     EMBEDDING_PROVIDERS,
     chat_provider,

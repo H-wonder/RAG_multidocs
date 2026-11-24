@@ -1,4 +1,4 @@
-from rag_multidocs.llm import answer_with_evidence, build_evidence, build_messages
+from rag_multidocs.qa.llm import answer_with_evidence, build_evidence, build_messages
 
 
 class FakeChat:

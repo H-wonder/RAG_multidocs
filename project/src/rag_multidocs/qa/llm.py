@@ -13,7 +13,7 @@ import urllib.error
 import urllib.request
 from typing import Any, Protocol
 
-from .providers import api_key, chat_provider
+from ..providers import api_key, chat_provider
 
 SYSTEM_PROMPT = """你是课程资料检索助手。只能依据用户提供的“证据”回答问题。
 要求：

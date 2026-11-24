@@ -1,6 +1,6 @@
 from rag_multidocs.config import Settings
 from rag_multidocs.credentials import load_keys
-from rag_multidocs.wizard import run_setup
+from rag_multidocs.cli.wizard import run_setup
 
 
 class FakeTTY:
@@ -9,7 +9,7 @@ class FakeTTY:
 
 
 def test_setup_wizard_saves_chat_and_key(tmp_path, monkeypatch):
-    monkeypatch.setattr("rag_multidocs.wizard.sys.stdin", FakeTTY())
+    monkeypatch.setattr("rag_multidocs.cli.wizard.sys.stdin", FakeTTY())
     config = tmp_path / "config.json"
     settings = Settings(
         data_dir=str(tmp_path / "data"),
@@ -37,7 +37,7 @@ def test_setup_wizard_saves_chat_and_key(tmp_path, monkeypatch):
 
 
 def test_setup_wizard_can_disable_chat(tmp_path, monkeypatch):
-    monkeypatch.setattr("rag_multidocs.wizard.sys.stdin", FakeTTY())
+    monkeypatch.setattr("rag_multidocs.cli.wizard.sys.stdin", FakeTTY())
     config = tmp_path / "config.json"
     settings = Settings(
         data_dir=str(tmp_path / "data"),

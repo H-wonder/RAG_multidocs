@@ -3,9 +3,9 @@ import urllib.error
 
 import pytest
 
-from rag_multidocs import discovery
+from rag_multidocs.providers import discovery
 from rag_multidocs.cli import main
-from rag_multidocs.discovery import DiscoveryError, discover_models
+from rag_multidocs.providers.discovery import DiscoveryError, discover_models
 
 
 class _Response:
@@ -74,7 +74,7 @@ def test_discover_ollama_falls_back_to_tags(monkeypatch):
 
 def test_cli_models_discover(monkeypatch, capsys, tmp_path):
     monkeypatch.setattr(
-        "rag_multidocs.cli.discover_models",
+        "rag_multidocs.cli.app.discover_models",
         lambda provider, kind=None, timeout=10.0: ["m1", "m2"],
     )
 

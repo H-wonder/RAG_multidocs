@@ -22,7 +22,7 @@ import urllib.error
 import urllib.request
 from typing import Protocol, runtime_checkable
 
-from .providers import api_key, embedding_provider
+from .presets import api_key, embedding_provider
 
 _TOKEN_RE = re.compile(r"[A-Za-z0-9_]+|[一-鿿]")
 

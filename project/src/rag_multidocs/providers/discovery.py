@@ -18,7 +18,7 @@ import urllib.error
 import urllib.request
 from typing import Any
 
-from .providers import (
+from .presets import (
     ChatProvider,
     EmbeddingProvider,
     api_key,

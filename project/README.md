@@ -11,6 +11,7 @@
 - 使用说明：[docs/USAGE.md](docs/USAGE.md)（安装、模型配置、Key、交互命令、FAQ）
 - 设计文档：[docs/DESIGN.md](docs/DESIGN.md)（提交版为 `docs/DESIGN.docx`）
 - 后续优化与分工：[docs/ROADMAP.md](docs/ROADMAP.md)
+- 两条拓展主线（RAG 链路 / 交互体验）：[docs/EXPANSION_PLAN.md](docs/EXPANSION_PLAN.md)
 - 已有资源与来源说明：[../已有资源/README.md](../已有资源/README.md)
 
 **最快体验**：

@@ -1,7 +1,7 @@
 import pytest
 
-from rag_multidocs.embedding import build_embedder
-from rag_multidocs.llm import build_chat_model
+from rag_multidocs.providers.embedding import build_embedder
+from rag_multidocs.qa.llm import build_chat_model
 from rag_multidocs.providers import (
     chat_provider,
     embedding_provider,

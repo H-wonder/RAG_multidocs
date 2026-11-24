@@ -1,6 +1,6 @@
-import rag_multidocs.repl as repl
+import rag_multidocs.cli.repl as repl
 from rag_multidocs.config import Settings
-from rag_multidocs.repl import Session
+from rag_multidocs.cli.repl import Session
 
 
 def _config(tmp_path):

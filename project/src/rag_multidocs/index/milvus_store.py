@@ -36,8 +36,8 @@ except ImportError as exc:  # 允许在没装 pymilvus 的环境里 import 本�
     MilvusClient = RRFRanker = WeightedRanker = None  # type: ignore
     _IMPORT_ERROR = exc
 
-from .model import Chunk
-from .embedding import Embedder
+from ..model import Chunk
+from ..providers.embedding import Embedder
 
 OUTPUT_FIELDS = [
     "doc_id",

@@ -6,10 +6,10 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from .chunking import ChunkingOptions, chunk_docparse_ir, chunk_document
-from .contracts import ConnectorConfig, ConnectorIssue
-from .index import KeywordIndex
-from .model import Document
-from .registry import ConnectorRegistry
+from ..contracts import ConnectorConfig, ConnectorIssue
+from ..index import KeywordIndex
+from ..model import Document
+from ..connectors.registry import ConnectorRegistry
 
 
 @dataclass

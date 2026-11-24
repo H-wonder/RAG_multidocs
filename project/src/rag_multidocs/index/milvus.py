@@ -15,9 +15,9 @@ from __future__ import annotations
 
 from typing import Any, Iterable
 
-from .embedding import Embedder
+from ..providers.embedding import Embedder
 from .milvus_store import MilvusHybridIndex
-from .model import Chunk, Document
+from ..model import Chunk, Document
 
 
 class MilvusIndex:
