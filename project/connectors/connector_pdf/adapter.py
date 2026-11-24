@@ -138,7 +138,9 @@ class DocparseConnector:
         - 文件不存在 → ``FileNotFoundError``；
         - 解析器退出码非 0 → ``DocparseError``（带 stdout/stderr 尾部）。
         """
-        source_path = Path(path)
+        # docparse 子进程的 cwd 是 repo，相对路径必须在这里转成绝对路径，
+        # 否则 CLI 传 samples/xxx.pdf 时会在 docparse 目录下找不到文件。
+        source_path = Path(path).expanduser().resolve()
         if not source_path.is_file():
             raise FileNotFoundError(str(source_path))
         if not self.available():

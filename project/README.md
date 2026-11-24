@@ -154,6 +154,30 @@ rag-cli connectors list
 rag-cli stats
 ```
 
+### 多格式样例集
+
+[samples/campus-corpus/](samples/campus-corpus/) 是“校园图书馆 + RAG 课程”领域的
+固定测试集，覆盖 TXT、Markdown、HTML、原生 PDF、扫描图片和 DOCX：
+
+```bash
+# 离线：TXT/Markdown/HTML
+rag-cli ingest --source txt --path samples/campus-corpus/txt
+rag-cli ingest --source connector.markdown --path samples/campus-corpus/markdown
+rag-cli ingest --source connector.html --path samples/campus-corpus/html
+
+# 需要 docparse + Ollama：原生 PDF / DOCX
+# 原生路径不调用 OCR，但 docparse 预检要求 Ollama 可达
+rag-cli ingest --source pdf --path samples/campus-corpus/pdf/course-project-guide.pdf
+rag-cli ingest --source pdf --path samples/campus-corpus/office/course-faq.docx
+
+# 需要 Ollama + Xiaomi-OCR-0：扫描图片 OCR
+rag-cli ingest --source pdf --path samples/campus-corpus/pdf/scanned-library-notice.png
+```
+
+预期查询：`馆际互借`、`切块`、`借阅期限`、`扩展要求`、`期末开放时间`。
+样例中的原生 PDF、DOCX 和扫描 PNG OCR 均已实测通过。
+详细说明和预期来源见 [samples/campus-corpus/README.md](samples/campus-corpus/README.md)。
+
 ### 4. 检索增强问答
 
 先用 `setup`（或 `models use` + `keys set`）选择 provider/模型并保存 Key：
@@ -367,9 +391,10 @@ MIT 简洁、便于课程展示与后续复用；第三方/来源代码的许可
 
 - Milvus 主检索已接入 dense + BM25；关键词回退仍是词面检索，同义改写召回有限；
 - 本地嵌入首次运行需下载 bge 模型；换模型必须新建同维度集合；
-- PDF/扫描件插件依赖外部 docparse 与 Ollama，未配置时返回
-  `CONNECTOR_UNAVAILABLE`，不影响 TXT/Markdown/HTML；
-- 真实扫描件 OCR 尚未做端到端验收；契约测试使用假 docparse 子进程，不依赖模型；
+- PDF/扫描件插件依赖外部 docparse 与 Ollama；未配置 docparse 返回
+  `CONNECTOR_UNAVAILABLE`，docparse 已配置但 Ollama 不可达返回 `PARSE_ERROR`；
+- `samples/campus-corpus/` 的扫描 PNG 已用 Ollama + Xiaomi-OCR-0 实测；
+  复杂真实扫描件（票据、手写、多栏）仍需更多验收；
 - HTML 插件只提取可见正文，不还原复杂布局、CSS 或表格合并单元格；
 - 中文分词为单字 + 二元组，未做领域词典；
 - 关键词回退索引为本地 JSON，适合课程规模；Milvus 主路径由 Docker 卷持久化；

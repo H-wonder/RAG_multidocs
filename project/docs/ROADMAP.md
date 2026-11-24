@@ -13,7 +13,7 @@
 | --- | --- | --- |
 | 统一 `Document` / `Chunk` 模型 | 完成 | `src/rag_multidocs/model.py` |
 | 内置 TXT Connector | 完成 | `src/rag_multidocs/connectors/txt.py` |
-| 独立 PDF/扫描件/Office 插件 | 插件化完成，真实 OCR 待验证 | `connectors/connector_pdf/`，子进程调用 docparse |
+| 独立 PDF/扫描件/Office 插件 | 插件化完成；样例原生 PDF/DOCX/PNG OCR 已实测 | `connectors/connector_pdf/`，子进程调用 docparse |
 | 独立 Markdown 目录 Connector | 完成 | `connectors/connector_markdown/`，manifest + adapter |
 | 独立 HTML 目录 Connector | 完成 | `connectors/connector_html/`，标准库 html.parser |
 | Connector 契约/注册/错误模型 | 完成 | `contracts.py`、`registry.py` |
@@ -25,14 +25,15 @@
 | CLI | 完成 | `ingest/search/ask/models/docs/connectors/stats` |
 | 交互式 CLI | 完成 | 直接运行 `rag-cli` 进入 REPL；`/search`、`/ingest`、`/model`、`/keys`、`/setup`、流式问答 |
 | 本地 API Key 管理 | 完成 | `rag-cli setup` / `keys set|list|unset|export`；`.rag/credentials.json`（0600、gitignored），环境变量优先 |
-| 单元测试 | 55 passed | `pytest -q -m "not integration"` |
+| 单元测试 | 57 passed | `pytest -q -m "not integration"` |
 | Milvus 集成测试 | 1 passed（本地隔离容器） | `pytest -q -m integration` |
-| CI | unit/integration 均通过（PR #1） | 仓库根 `.github/workflows/ci.yml` |
+| CI | unit/integration 均通过（run #8） | 仓库根 `.github/workflows/ci.yml` |
 | README/设计文档/环境文档 | 已完成，需随版本更新 | `README.md`、`docs/DESIGN.docx` |
 
 ### 1.2 明确未完成
 
-- 真实 PDF / 扫描件 / OCR 全链路未在项目中跑过；
+- `samples/campus-corpus/` 已跑通原生 PDF、DOCX 和扫描 PNG 的 OCR；
+  复杂真实扫描件（票据、手写、多栏）仍需验收；
 - 本地 bge 嵌入已通过 ingest/search 实测；真实 DeepSeek/DashScope/OpenAI/Ollama
   问答仍未做人工验收（当前无 Key）；
 - 成员贡献表、PR/Review 记录（PR #1 可先登记）、最终 Tag/发行物未完成；
@@ -48,7 +49,7 @@
 
 | ID | 任务 | 负责人 | 依赖 | 验收标准 |
 | --- | --- | --- | --- | --- |
-| P0-1 | 真实 PDF / 扫描件 / OCR 验收 | **B** | docparse 环境、Ollama | 至少 1 个原生 PDF + 1 个扫描件跑通；记录页数、chunks、是否需 OCR；失败行为符合 `CONNECTOR_UNAVAILABLE/PARSE_ERROR` |
+| P0-1 | 复杂 PDF / 扫描件 / OCR 验收 | **B** | docparse 环境、Ollama | 在 `samples/campus-corpus/` 基础上补复杂扫描件；记录页数、chunks、耗时、失败行为符合 `CONNECTOR_UNAVAILABLE/PARSE_ERROR` |
 | P0-2 | 真实 embedding 验收（bge/DashScope） | **C** | Milvus 2.5+、模型或 Key | `rag-cli ingest` 入库；`search` 命中带 `source/page/section_path`；维度与集合一致 |
 | P0-3 | 真实 LLM 问答验收 | **C**（B 复核引用） | 任一 chat Key 或 Ollama | `rag-cli ask` 返回答案 + `[n]` 来源；无证据不调用 LLM；错误 Key 有明确提示 |
 | P0-4 | CI integration 实际运行 | **C** | GitHub Actions | 已有绿色 run（PR #1）；C 补 run 链接/编号到 README/RELEASE |
@@ -166,7 +167,7 @@ Release 记录完整；新目录可运行。
 | --- | --- | --- |
 | 现有 Milvus embedded etcd 重启后 `node not match` | 无法建新集合 | 用新数据卷/新容器；不要删旧数据，先备份；集成测试用隔离容器 |
 | 真实 API Key 不可用/限流 | 问答演示失败 | 用 Ollama 本地模型；`--no-generate` 退回检索；错误提示明确 |
-| docparse/Ollama 依赖重 | PDF 验收慢 | 先跑原生 PDF（无需模型）；扫描件单独安排 |
+| docparse/Ollama 依赖重 | PDF 验收慢 | 先跑原生 PDF/DOCX（不调用 OCR，但需 Ollama 可达）；扫描件单独安排 |
 | bge 模型下载失败 | 本地 embedding 不可用 | 设 `HF_ENDPOINT=https://hf-mirror.com`；或先用 `hashing` 验证链路 |
 | 维度不一致 | Milvus 写入失败/检索错误 | `models use` 重置默认；换模型新建集合；写测试 |
 | CI Docker 拉取慢/启动失败 | integration job 红 | 增加等待循环/日志；失败时保留容器日志 |
