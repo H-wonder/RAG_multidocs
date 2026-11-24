@@ -54,6 +54,9 @@ echo "安装平台依赖 ..."
 python -m pip install -r "$HERE/requirements-rag.txt"
 python -m pip install -r "$HERE/requirements-core.txt"
 
+echo "安装项目（rag-cli）..."
+(cd "$HERE/../../project" && python -m pip install -e ".[dev,milvus]")
+
 echo "检查平台依赖 ..."
 python -m pip check
 python - <<'PY'
@@ -64,8 +67,11 @@ print("pymilvus", pymilvus.__version__)
 print("sentence-transformers", sentence_transformers.__version__)
 PY
 
-echo "运行核心测试 ..."
+echo "运行资源包测试 ..."
 python -m pytest -q "$HERE/../代码/tests"
+
+echo "运行产品单元测试 ..."
+(cd "$HERE/../../project" && python -m pytest -q -m "not integration")
 
 # ---------------------------------------------------------------- 解析环境
 ensure_env "$PARSER_ENV"
@@ -97,11 +103,15 @@ cat <<EOF
 下一步：
 
   conda activate $PLATFORM_ENV
-  cp 环境/.env.example .env
+  cd "$HERE/../.."
+  cp 已有资源/环境/.env.example .env
   # 把 DOCPARSE_PYTHON 改成 $(conda run -n "$PARSER_ENV" which python)
   # 修改 DOCPARSE_REPO、MILVUS_URI 等
+  set -a; source .env; set +a
 
-  cd 代码 && python -m pytest -q
+  cd project
+  python -m pytest -q -m "not integration"
+  rag-cli connectors list
 
 Milvus 与 Ollama 按文档 07 第 4 节启动。
 EOF

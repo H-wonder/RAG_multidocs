@@ -14,6 +14,7 @@ PLATFORM_ENV="${PLATFORM_ENV:-rag}"
 PARSER_ENV="${PARSER_ENV:-docparse}"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
+PROJECT_ROOT="$(cd "$ROOT/../project" 2>/dev/null && pwd || true)"
 
 pass=0
 warn=0
@@ -46,6 +47,16 @@ if conda run -n "$PLATFORM_ENV" python -c "import pytest" >/dev/null 2>&1; then
 else
   warn "平台环境缺少 pytest（pip install -r 环境/requirements-core.txt）"
 fi
+if conda run -n "$PLATFORM_ENV" python -c "import rag_multidocs" >/dev/null 2>&1; then
+  ok "项目包 rag_multidocs"
+else
+  bad "平台环境缺少项目包（在仓库根目录 pip install -e 'project[dev,milvus]'）"
+fi
+if conda run -n "$PLATFORM_ENV" rag-cli --help >/dev/null 2>&1; then
+  ok "rag-cli"
+else
+  bad "rag-cli 不可用（pip install -e 'project[dev,milvus]'）"
+fi
 
 echo "== 4. 解析依赖 =="
 if conda run -n "$PARSER_ENV" python -c "import paddle, fitz" >/dev/null 2>&1; then
@@ -60,10 +71,20 @@ if [ -f "$ROOT/代码/document_model.py" ] && [ -f "$ROOT/代码/keyword_index.p
 else
   bad "复用模块不完整"
 fi
-if conda run -n "$PLATFORM_ENV" python -m pytest -q "$ROOT/代码/tests" >/dev/null 2>&1; then
-  ok "核心测试通过"
+if [ -f "$PROJECT_ROOT/pyproject.toml" ] && [ -d "$PROJECT_ROOT/src/rag_multidocs" ]; then
+  ok "产品工程 project/"
 else
-  warn "核心测试未运行（平台环境缺 pytest，或测试失败；激活 $PLATFORM_ENV 后手动运行 pytest 查看）"
+  bad "产品工程 project/ 不完整"
+fi
+if conda run -n "$PLATFORM_ENV" python -m pytest -q "$ROOT/代码/tests" >/dev/null 2>&1; then
+  ok "资源包测试通过"
+else
+  warn "资源包测试未运行（平台环境缺 pytest，或测试失败）"
+fi
+if (cd "$PROJECT_ROOT" && conda run -n "$PLATFORM_ENV" python -m pytest -q -m "not integration" >/dev/null 2>&1); then
+  ok "产品单元测试通过"
+else
+  warn "产品单元测试未运行（检查 project/ 安装或测试失败）"
 fi
 
 echo "== 6. 外部服务 =="

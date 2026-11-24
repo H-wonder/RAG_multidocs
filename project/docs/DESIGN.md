@@ -361,7 +361,8 @@ PDF 插件的 manifest：
 2. 插件从 `context["settings"]` 读取 `docparse_repo` / `docparse_python` /
    `docparse_mode`，从 `payload["options"]` 读取 `mode` 覆盖；
 3. 通过子进程调用 `python -m docparse parse ... --format md,json`；
-4. 原生文本 PDF 走 docparse 原生抽取；扫描件/图片/坏文本层才走 OCR；
+   docparse CLI 在 parse 前会检查 Ollama 可达，原生 PDF/DOCX 也需要服务在跑；
+4. 原生文本 PDF/DOCX 走 docparse 原生抽取；扫描件/图片/坏文本层才实际调用 OCR；
 5. 插件把 IR 映射成 `Document`，设置 `metadata["docparse_ir"]`；
    核心 `IngestService` 识别后走结构化切块；
 6. 路径不存在、扩展名不支持、docparse 不可用、解析失败分别返回
@@ -505,6 +506,7 @@ rag-cli ingest --source txt --path samples/notes.txt   # 核心仍可用
 | PDF 错误 | 未配置 docparse | `CONNECTOR_UNAVAILABLE`，不影响其他插件 |
 | 契约 | docparse IR 映射 | 页码、章节、表格块正确 |
 | CLI | `ingest/search/ask/models/docs/connectors` | 输出与退出码 |
+| 样例集 | `samples/campus-corpus/` | TXT/Markdown/HTML 可离线导入；PDF/PNG/DOCX 覆盖插件与 OCR 路径 |
 | 幂等 | 同一文档重复导入 | 块数不翻倍 |
 | 回退 | Milvus 不可用 | 自动切 keyword，打印 WARN，TXT 仍可检索 |
 | Milvus 集成 | 写入 → dense+BM25 检索 | `@pytest.mark.integration`，命中带 source |
@@ -514,8 +516,9 @@ rag-cli ingest --source txt --path samples/notes.txt   # 核心仍可用
 | 凭证 | set/list/unset/apply | 0600 权限、环境变量优先、脱敏、导出语句 |
 | 交互式 | REPL 命令解析与裸命令 | `/help`、别名、未知命令提示、配置持久化 |
 
-当前结果：离线单元测试 55 passed；Milvus 集成测试 1 passed（本地隔离容器）；
+当前结果：离线单元测试 57 passed；Milvus 集成测试 1 passed（本地隔离容器）；
 GitHub Actions run #8（`f6f5b52`）的 unit/integration 两个 job 均通过。
+`samples/campus-corpus/` 已实测原生 PDF、DOCX 和扫描 PNG 的 OCR。
 
 ### 7.2 CI 与静态检查
 
@@ -555,9 +558,10 @@ GitHub Actions run #8（`f6f5b52`）的 unit/integration 两个 job 均通过。
 ### 8.2 已知限制
 
 - 中文关键词回退分词为单字 + 二元组，未做领域词典；
-- PDF 插件依赖 docparse 与 Ollama；未配置时返回 `CONNECTOR_UNAVAILABLE`，
-  不影响 TXT/Markdown/HTML；
-- 真实扫描件 OCR 尚未端到端验收；单元测试用假 docparse 覆盖插件调用链；
+- PDF 插件依赖 docparse 与 Ollama；未配置 docparse 时返回 `CONNECTOR_UNAVAILABLE`，
+  docparse 已配置但 Ollama 不可达时返回 `PARSE_ERROR`，不影响 TXT/Markdown/HTML；
+- `samples/campus-corpus/` 的扫描 PNG 已用 Ollama + Xiaomi-OCR-0 实测；
+  复杂真实扫描件（票据、手写、多栏）仍需更多验收；
 - HTML 插件只提取可见正文，不还原复杂 CSS 布局或合并单元格；
 - Milvus 需要 Docker 和 2.5+；嵌入模型维度必须与集合一致；
 - 未实现查询扩写/重排、多轮对话记忆；
@@ -568,7 +572,7 @@ GitHub Actions run #8（`f6f5b52`）的 unit/integration 两个 job 均通过。
 
 ### 8.3 后续计划
 
-1. 补充真实扫描件/图片 OCR 验收（启动 Ollama + Xiaomi-OCR-0，记录页数、耗时、失败模式）；
+1. 补充复杂真实扫描件/票据/手写 OCR 验收（样例 PNG 已跑通，继续记录耗时、失败模式）；
 2. 增强 HTML 插件（表格、链接、正文清洗），保持 manifest/adapter 机制不变；
 3. 增加重排/查询扩写（可选），保留关键词回退与来源字段；
 4. 增加增量清单（SQLite）与 SimHash 去重；

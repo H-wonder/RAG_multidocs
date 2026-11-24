@@ -17,6 +17,8 @@ def _fake_docparse_repo(tmp_path):
             import sys
             from pathlib import Path
 
+            if not Path(sys.argv[2]).is_absolute():
+                raise SystemExit("input path is not absolute")
             out = Path(sys.argv[sys.argv.index("-o") + 1])
             out.mkdir(parents=True, exist_ok=True)
             ir = {

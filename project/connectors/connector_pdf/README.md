@@ -31,7 +31,10 @@ rag-cli ingest --source pdf --path samples/some.pdf
 - 无 docparse 时返回 `CONNECTOR_UNAVAILABLE`，不影响 TXT/Markdown/HTML；
 - 原生文本 PDF 由 docparse 原生抽取，不调用 OCR；
 - 扫描件/图片/坏文本层才走 docparse → Ollama → Xiaomi-OCR-0；
-- 真实 OCR 验收需要启动 Ollama 并准备扫描件，属于部署/验收步骤，不是本插件的单元测试前提。
+- docparse CLI 在 `parse` 前会检查 Ollama 后端可达，因此原生 PDF/DOCX 也需要
+  Ollama 服务在跑（原生路径不实际调用模型）；
+- `samples/campus-corpus/` 已包含原生 PDF、DOCX、扫描 PNG，可用于真实验收；
+- 单元测试使用假 docparse，不依赖 Ollama；真实 OCR 验收属于部署/验收步骤。
 
 ## 错误
 
