@@ -86,7 +86,15 @@ rag-cli models list
 rag-cli models use --kind chat --provider deepseek --model deepseek-chat
 rag-cli models use --kind embedding --provider dashscope --model text-embedding-v4 --dim 1024
 rag-cli keys set --provider deepseek
+
+# 动态查询 provider 当前可用的模型，避免手写模型名过时
+rag-cli models discover --provider ollama --kind chat
+rag-cli models discover --provider deepseek --kind chat
 ```
+
+在 REPL 中直接输入 `/model`（不带参数）会打开交互菜单：
+先选 chat/embedding，再选 provider，然后从动态模型列表选择或手动输入模型名；
+embedding 还会提示维度。`/model` 带参数时仍然直接设置。
 
 ## 4. chat 和 embedding 的区别
 
@@ -184,7 +192,8 @@ export RAG_CREDENTIALS=/path/to/credentials.json
 | `/stats` | 索引统计 |
 | `/connectors` | 连接器及启用状态 |
 | `/models` | 所有 provider、当前选择、Key 状态 |
-| `/model <chat\|embedding> <provider> [模型名] [--dim N]` | 选择模型；chat 传 `none` 关闭问答 |
+| `/model` | 打开交互菜单：类型 → provider → 模型（embedding 再问维度） |
+| `/model <chat\|embedding> <provider> [模型名] [--dim N]` | 直接选择模型；chat 传 `none` 关闭问答 |
 | `/keys [list\|set <provider>\|unset <provider>\|path]` | 管理本地 Key |
 | `/setup` | 两步配置 chat/embedding |
 | `/config` | 当前配置（不显示 Key） |
@@ -233,5 +242,5 @@ ruff check src tests connectors
 MILVUS_URI=http://localhost:19530 pytest -q -m integration
 ```
 
-当前基线：离线单元测试 57 passed，Milvus 集成测试 1 passed（需要可用的 Milvus 服务）。
+当前基线：离线单元测试 65 passed，Milvus 集成测试 1 passed（需要可用的 Milvus 服务）。
 `samples/campus-corpus/` 含 TXT/Markdown/HTML/PDF/PNG/DOCX 多格式样例。

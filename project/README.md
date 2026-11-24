@@ -191,6 +191,11 @@ rag-cli setup
 rag-cli models use --kind chat --provider deepseek --model deepseek-chat
 rag-cli keys set --provider deepseek        # 隐藏输入，保存到 .rag/credentials.json
 rag-cli models list                          # 显示 key 来源（env/file）和脱敏值
+
+# 动态查询 provider 实际可用模型（避免手写模型名过时）
+rag-cli models discover --provider ollama --kind chat
+rag-cli models discover --provider deepseek --kind chat
+
 rag-cli keys list
 rag-cli keys unset --provider deepseek       # 删除 Key
 rag-cli models use --kind chat --provider none  # 关闭生成式问答（只检索）
@@ -240,7 +245,9 @@ rag-cli
 rag> 检索器如何训练
 rag> /search 表格
 rag> /ingest txt samples/notes.txt
-rag> /model chat deepseek deepseek-chat
+rag> /model                 # 交互菜单：chat/embedding → provider → 模型
+rag> /model chat deepseek deepseek-chat   # 直接指定
+rag> /models                # 查看 provider、Key 状态
 rag> /keys set deepseek
 rag> /setup
 rag> /help
@@ -346,6 +353,7 @@ git diff --stat -- src/rag_multidocs
 | Milvus 集成 | `@pytest.mark.integration`：写入 → dense+BM25 检索 → 来源断言 |
 | 问答 | FakeChat：证据拼入 prompt、答案带引用、无证据不调用模型 |
 | 模型选择 | provider 列表、环境变量 Key 检查、`models use` 持久化 |
+| 模型发现 | `models discover` 的 `/models`、Ollama `/api/tags`、无 Key 错误；`/model` 菜单默认/自定义模型 |
 | CLI | `ingest/search/ask/models/docs/connectors` 的输出与退出码 |
 
 本地命令：

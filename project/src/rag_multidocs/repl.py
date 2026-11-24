@@ -17,6 +17,7 @@ from .credentials import (
     source_of,
     unset_key,
 )
+from .discovery import DiscoveryError, discover_models
 from .llm import answer_with_evidence, build_chat_model
 from .providers import (
     chat_provider,
@@ -55,8 +56,9 @@ HELP = """\
 /stats                        索引统计
 /connectors                   连接器列表
 /models                       模型 provider 列表
+/model                        打开 chat/embedding 交互选择菜单
 /model <chat|embedding> <provider> [模型名] [--dim N]
-                              选择模型并写入 config.json；
+                              直接设置模型并写入 config.json；
                               chat 用 none 关闭生成式问答
 /keys                         查看已保存的 Key（脱敏）
 /keys set <provider>          输入并保存 API Key（不回显）
@@ -293,7 +295,151 @@ class Session:
                 f"  key={key}"
             )
 
+    def _ask_line(self, prompt: str) -> str | None:
+        try:
+            return input(prompt).strip()
+        except (EOFError, KeyboardInterrupt):
+            print()
+            return None
+
+    def _pick_model_kind(self) -> str | None:
+        print("选择模型类型：")
+        print("  [1] chat       生成答案")
+        print("  [2] embedding  向量化入库/检索")
+        choice = self._ask_line("编号 [1]: ")
+        if choice is None:
+            return None
+        if choice in ("", "1"):
+            return "chat"
+        if choice == "2":
+            return "embedding"
+        print("无效编号", file=sys.stderr)
+        return None
+
+    def _pick_model_provider(self, kind: str) -> str | None:
+        if kind == "chat":
+            rows = list_chat_providers()
+            current = self.settings.chat_provider
+        else:
+            rows = list_embedding_providers()
+            current = self.settings.embed_backend
+        print(f"选择 {kind} provider：")
+        if kind == "chat":
+            print("  [0] none       关闭生成式问答")
+        for index, item in enumerate(rows, start=1):
+            mark = "*" if item["name"] == current else " "
+            key = self._key_summary(item.get("api_key_env", ""))
+            print(
+                f"  [{index}]{mark} {item['name']:10} "
+                f"{item['default_model']:28} key={key}"
+            )
+        choice = self._ask_line(
+            f"编号 [回车保持 {current or '未选择'}]: "
+        )
+        if choice is None:
+            return None
+        if kind == "chat" and choice == "0":
+            return "none"
+        if not choice:
+            if current:
+                return current
+            return "none" if kind == "chat" else "local"
+        if choice.isdigit():
+            index = int(choice)
+            if 1 <= index <= len(rows):
+                return rows[index - 1]["name"]
+            print("编号超出范围", file=sys.stderr)
+            return None
+        try:
+            if kind == "chat":
+                chat_provider(choice)
+            else:
+                embedding_provider(choice)
+        except ValueError as exc:
+            print(f"[CONFIG_ERROR] {exc}", file=sys.stderr)
+            return None
+        return choice
+
+    def _pick_model_name(
+        self, kind: str, provider: str
+    ) -> tuple[str, int | None] | None:
+        preset = (
+            chat_provider(provider)
+            if kind == "chat"
+            else embedding_provider(provider)
+        )
+        try:
+            models = discover_models(provider, kind=kind)
+        except (DiscoveryError, ValueError) as exc:
+            print(f"[WARN] 无法动态获取模型列表: {exc}", file=sys.stderr)
+            models = []
+        if not models:
+            models = [preset.default_model]
+
+        print("可用模型：")
+        for index, model in enumerate(models, start=1):
+            suffix = "  (默认)" if model == preset.default_model else ""
+            print(f"  [{index}] {model}{suffix}")
+        print("  [c] 手动输入模型名")
+        choice = self._ask_line(
+            f"编号或模型名 [默认 {preset.default_model}]: "
+        )
+        if choice is None:
+            return None
+        if not choice:
+            model = ""
+        elif choice.lower() == "c":
+            model = self._ask_line("模型名: ") or ""
+        elif choice.isdigit() and 1 <= int(choice) <= len(models):
+            model = models[int(choice) - 1]
+        else:
+            model = choice
+        if model == preset.default_model:
+            model = ""
+
+        dim: int | None = None
+        if kind == "embedding":
+            dim_text = self._ask_line(f"向量维度 [{preset.default_dim}]: ")
+            if dim_text is None:
+                return None
+            if dim_text:
+                if not dim_text.isdigit() or int(dim_text) <= 0:
+                    print("维度必须是正整数", file=sys.stderr)
+                    return None
+                dim = int(dim_text)
+        return model, dim
+
+    def _model_picker(self) -> None:
+        if not sys.stdin.isatty():
+            print(
+                "用法: /model <chat|embedding> <provider> [模型名] [--dim N]",
+                file=sys.stderr,
+            )
+            return
+        kind = self._pick_model_kind()
+        if kind is None:
+            return
+        provider = self._pick_model_provider(kind)
+        if provider is None:
+            return
+        if kind == "chat" and provider == "none":
+            self.cmd_model(["chat", "none"])
+            return
+        picked = self._pick_model_name(kind, provider)
+        if picked is None:
+            return
+        model, dim = picked
+        args = [kind, provider]
+        if model:
+            args.append(model)
+        if kind == "embedding" and dim is not None:
+            args.extend(["--dim", str(dim)])
+        self.cmd_model(args)
+
     def cmd_model(self, args: list[str]) -> None:
+        if not args:
+            self._model_picker()
+            return
         if len(args) < 2 or args[0] not in ("chat", "embedding"):
             print("用法: /model <chat|embedding> <provider> [模型名] [--dim N]", file=sys.stderr)
             return

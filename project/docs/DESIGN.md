@@ -107,6 +107,7 @@ PDF 插件 ──子进程──► docparse conda env ──loopback──► O
 | `milvus_store.py` | Milvus schema/集合/混合检索封装 | pymilvus（可选） |
 | `embedding.py` | Embedder 协议与 bge/DashScope/OpenAI/Ollama/hashing 实现 | sentence-transformers / 标准库 |
 | `providers.py` | embedding/chat provider 预设、Key 环境变量映射 | 标准库 |
+| `discovery.py` | 从 OpenAI 兼容 `/models` / Ollama `/api/tags` 动态发现模型 | urllib，标准库 |
 | `credentials.py` | 本地 Key 文件读写、0600 权限、脱敏、启动时加载 | 标准库 |
 | `llm.py` | OpenAI 兼容 Chat、证据 prompt、引用式答案、SSE 流式 | 标准库 |
 | `repl.py` | 交互式会话、斜杠命令、历史记录、流式渲染 | 标准库 readline |
@@ -305,6 +306,7 @@ question
 | `rag-cli setup` | 两步配置 chat/embedding 与 Key | 非 TTY 退出码 2 |
 | `rag-cli keys list/set/unset/export/path` | 本地 Key 管理（脱敏显示） | 非法 provider/变量名退出码 2 |
 | `rag-cli models list/use` | 查看/选择 provider 与模型 | 未知 provider 退出码 2 |
+| `rag-cli models discover --provider P` | 动态查询 provider 模型列表 | 无 Key/接口不支持/超时返回 `MODEL_DISCOVERY_ERROR` |
 | `rag-cli docs list` | 已索引文档汇总 | 空索引提示 `no documents` |
 | `rag-cli connectors list` | 内置/插件与启用状态 | — |
 | `rag-cli connectors enable/disable NAME` | 修改配置并持久化 | 未知名称退出码 2 |
@@ -513,11 +515,12 @@ rag-cli ingest --source txt --path samples/notes.txt   # 核心仍可用
 | 问答 | FakeChat + 命中证据 | 证据进入 prompt、答案带引用、无证据不调用模型 |
 | 问答 | 流式 Chat + on_token | token 顺序拼接等于最终答案；无 stream 时回退 complete |
 | 模型选择 | provider 列表/Key 检查/models use | 环境变量 Key、配置持久化、`none` 关闭问答 |
+| 模型发现 | `models discover` + `/model` 菜单 | OpenAI `/models`、Ollama `/api/tags`；无 Key/失败有明确错误 |
 | 凭证 | set/list/unset/apply | 0600 权限、环境变量优先、脱敏、导出语句 |
 | 交互式 | REPL 命令解析与裸命令 | `/help`、别名、未知命令提示、配置持久化 |
 
-当前结果：离线单元测试 57 passed；Milvus 集成测试 1 passed（本地隔离容器）；
-GitHub Actions run #8（`f6f5b52`）的 unit/integration 两个 job 均通过。
+当前结果：离线单元测试 65 passed；Milvus 集成测试 1 passed（本地隔离容器）；
+GitHub Actions 最近一次 `main` run 的 unit/integration 两个 job 均通过。
 `samples/campus-corpus/` 已实测原生 PDF、DOCX 和扫描 PNG 的 OCR。
 
 ### 7.2 CI 与静态检查

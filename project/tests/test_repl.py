@@ -78,3 +78,25 @@ def test_repl_prompt_marks_ansi_as_nonprinting(monkeypatch):
     assert prompt.startswith("\001")
     assert prompt.endswith("\002")
     assert "rag> " in prompt
+
+
+def test_model_picker_uses_local_default(monkeypatch, tmp_path):
+    session = Session(str(_config(tmp_path)))
+    answers = iter(["1", ""])
+    monkeypatch.setattr("builtins.input", lambda prompt="": next(answers))
+
+    model, dim = session._pick_model_name("embedding", "local")
+
+    assert model == ""
+    assert dim is None
+
+
+def test_model_picker_accepts_custom_model_and_dim(monkeypatch, tmp_path):
+    session = Session(str(_config(tmp_path)))
+    answers = iter(["c", "my-embed-model", "1024"])
+    monkeypatch.setattr("builtins.input", lambda prompt="": next(answers))
+
+    model, dim = session._pick_model_name("embedding", "local")
+
+    assert model == "my-embed-model"
+    assert dim == 1024

@@ -5,7 +5,7 @@
 - Tag 及其目标 Commit（完整 SHA）：待发布
 - 工作区状态、构建/测试结果及 CI 真实状态：
   - 工作区：待发布时执行 `git status`
-  - 本地单元测试：`cd project && pytest -q -m "not integration"`（57 passed）
+  - 本地单元测试：`cd project && pytest -q -m "not integration"`（65 passed）
   - 本地 Milvus 集成测试：`MILVUS_URI=... pytest -q -m integration`（1 passed）
   - CI：run #8 的 unit + Milvus integration 均通过；PR #2 将重新触发
 - 交付物名称、环境要求与运行命令：待生成发行 ZIP/可运行目录后填写

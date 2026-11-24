@@ -25,7 +25,7 @@
 | CLI | 完成 | `ingest/search/ask/models/docs/connectors/stats` |
 | 交互式 CLI | 完成 | 直接运行 `rag-cli` 进入 REPL；`/search`、`/ingest`、`/model`、`/keys`、`/setup`、流式问答 |
 | 本地 API Key 管理 | 完成 | `rag-cli setup` / `keys set|list|unset|export`；`.rag/credentials.json`（0600、gitignored），环境变量优先 |
-| 单元测试 | 57 passed | `pytest -q -m "not integration"` |
+| 单元测试 | 65 passed | `pytest -q -m "not integration"` |
 | Milvus 集成测试 | 1 passed（本地隔离容器） | `pytest -q -m integration` |
 | CI | unit/integration 均通过（run #8） | 仓库根 `.github/workflows/ci.yml` |
 | README/设计文档/环境文档 | 已完成，需随版本更新 | `README.md`、`docs/DESIGN.docx` |

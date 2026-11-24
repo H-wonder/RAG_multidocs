@@ -13,6 +13,7 @@ from dataclasses import asdict, dataclass
 from .config import Settings
 from .connectors.txt import TxtConnector
 from .contracts import ConnectorError
+from .discovery import DiscoveryError, discover_models
 from .credentials import (
     apply_keys,
     credentials_path,
@@ -430,6 +431,36 @@ def _key_label(env_name: str) -> str:
     return f"{env_name}[{source}] {value}"
 
 
+def cmd_models_discover(args: argparse.Namespace) -> int:
+    try:
+        models = discover_models(
+            args.provider,
+            kind=args.kind,
+            timeout=args.timeout,
+        )
+    except (ValueError, DiscoveryError) as exc:
+        print(f"[MODEL_DISCOVERY_ERROR] {exc}", file=sys.stderr)
+        return 2
+
+    if args.json:
+        print(json.dumps(
+            {
+                "provider": args.provider,
+                "kind": args.kind or "",
+                "models": models,
+            },
+            ensure_ascii=False,
+            indent=2,
+        ))
+        return 0
+    if not models:
+        print("no models")
+        return 0
+    for model in models:
+        print(model)
+    return 0
+
+
 def cmd_models_use(args: argparse.Namespace) -> int:
     settings = Settings.load(args.config)
     if args.kind == "chat" and args.provider.lower() in ("none", "off", "clear"):
@@ -689,6 +720,19 @@ def build_parser() -> argparse.ArgumentParser:
     models_use.add_argument("--base-url", dest="base_url", default="", help="覆盖 base URL")
     add_config(models_use)
     models_use.set_defaults(func=cmd_models_use)
+
+    models_discover = models_sub.add_parser(
+        "discover", help="从 provider 动态查询可用模型"
+    )
+    models_discover.add_argument("--provider", required=True)
+    models_discover.add_argument(
+        "--kind", choices=["embedding", "chat"], default=None,
+        help="同名 provider 区分 chat/embedding；可省略",
+    )
+    models_discover.add_argument("--timeout", type=float, default=10.0)
+    models_discover.add_argument("--json", action="store_true")
+    add_config(models_discover)
+    models_discover.set_defaults(func=cmd_models_discover)
 
     docs = sub.add_parser("docs", help="文档列表")
     docs_sub = docs.add_subparsers(dest="docs_command", required=True)
