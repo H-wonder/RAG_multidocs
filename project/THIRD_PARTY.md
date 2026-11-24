@@ -10,7 +10,7 @@
 | `src/rag_multidocs/chunking.py` | `任务二/docflow/chunker.py` | 去掉全局配置依赖，参数化；增加 TXT/Markdown 切块 |
 | `src/rag_multidocs/index.py` | 新写 | BM25 关键词索引，纯标准库 |
 | `src/rag_multidocs/registry.py` | `skills/registry.py` | 改为通用 Connector 注册表 |
-| `src/rag_multidocs/connectors/pdf.py` | `docparse_connector.py` | 薄封装 docparse CLI |
+| `connectors/connector_pdf/adapter.py` | `docparse_connector.py` | 改为独立插件，薄封装 docparse CLI |
 | `src/rag_multidocs/index_milvus.py` | DocFlow 的 Milvus 检索设计 | 包成 `IndexBackend`，补 list_docs/persist |
 | `src/rag_multidocs/milvus_store.py` | `任务二/docflow/services/rag_service.py` | 抽成可嵌入的 Milvus 混合检索类 |
 | `src/rag_multidocs/embedding.py` | `rag_service.py` 的嵌入函数 | Embedder 协议 + bge/DashScope/hashing |
@@ -18,8 +18,8 @@
 | `src/rag_multidocs/providers.py` | 新写 | embedding/chat provider 预设与环境变量 Key 读取 |
 | `src/rag_multidocs/llm.py` | 新写 | OpenAI 兼容 Chat、证据 prompt、引用式答案 |
 
-本次新增的 CLI、TXT/Markdown Connector、错误模型、测试、CI、设计文档和
-release 模板不计入既有代码。
+本次新增的 CLI、TXT 内置 Connector、Markdown/PDF/HTML 插件、错误模型、测试、CI、
+设计文档和 release 模板不计入既有代码。
 
 ## docparse（可选依赖）
 
@@ -30,7 +30,7 @@ PDF/扫描件/Office 解析由外部 docparse 提供，本项目不复制其源�
 - docparse 的 `docparse/vendor/` 来自 SeerRay-Lab/Xiaomi-OCR-0，**Apache-2.0**；
   完整许可见 `../已有资源/可选组件/docparse/docparse/vendor/LICENSE-Xiaomi-OCR-0.txt`。
 - docparse 仓库根目录没有显式 LICENSE 文件；公开发布前请确认再分发许可。
-- 未配置 docparse 时，PDF Connector 返回 `CONNECTOR_UNAVAILABLE`，核心功能不受影响。
+- 未配置 docparse 时，PDF 插件返回 `CONNECTOR_UNAVAILABLE`，核心功能不受影响。
 
 ## 第三方 Python 依赖
 

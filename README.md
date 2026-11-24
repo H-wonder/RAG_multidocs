@@ -5,7 +5,7 @@
 课程大作业项目：**RAG Connector Platform——插件化多模态文档解析与检索**。
 
 当前阶段（2026-11）：可运行 CLI 已完成——**交互式 REPL**、**本地 API Key 管理**、
-Connector 注册、TXT/Markdown/PDF 接入、Milvus 混合检索 + BM25 回退、
+Connector 注册、**TXT 内置 + Markdown/PDF/HTML 独立插件**、Milvus 混合检索 + BM25 回退、
 **流式**检索增强问答、测试与 CI 已落地；最终发行物与成员协作记录待补。
 
 最近更新（PR #1）：
@@ -20,7 +20,7 @@ Connector 注册、TXT/Markdown/PDF 接入、Milvus 混合检索 + BM25 回退�
 
 | 路径 | 内容 |
 | --- | --- |
-| [`project/`](project/) | 可运行产品：CLI、Core、内置 Connector、独立 Markdown 扩展、测试、CI |
+| [`project/`](project/) | 可运行产品：CLI、Core、内置 TXT、独立 Markdown/PDF/HTML 插件、测试、CI |
 | [`project/docs/USAGE.md`](project/docs/USAGE.md) | 使用说明：安装、模型与 Key、交互命令、FAQ |
 | [`project/docs/DESIGN.docx`](project/docs/DESIGN.docx) | 系统设计文档（提交版） |
 | [`project/docs/ROADMAP.md`](project/docs/ROADMAP.md) | 后续优化方向、P0/P1/P2 分工与验收标准 |
@@ -48,8 +48,10 @@ docker start milvus-standalone
 rag-cli ingest --source txt --path samples/notes.txt
 rag-cli search "检索器如何训练"
 
-# 独立 Markdown 扩展
+# 独立插件：Markdown / HTML / PDF
 rag-cli ingest --source connector.markdown --path samples/markdown
+rag-cli ingest --source connector.html --path samples/html
+rag-cli ingest --source pdf --path samples/some.pdf   # 需要 docparse 环境
 rag-cli search "表格"
 rag-cli connectors list
 
@@ -99,7 +101,7 @@ PDF/扫描件解析需要 docparse 环境；完整环境步骤见
 
 本项目基于作者此前的多模态文档入库工程（DocFlow）演化，复用/改编了其中的
 文档模型、切块、去重、清单、Milvus 检索和 docparse 解析代码；本次新增了
-可运行 CLI、Connector 契约与注册、TXT/Markdown Connector、Milvus 混合检索、
+可运行 CLI、Connector 契约与注册、TXT 内置 Connector、Markdown/PDF/HTML 插件、Milvus 混合检索、
 BM25 关键词回退、集成测试与 CI、设计文档和 release 模板。
 
 来源、许可与第三方声明见

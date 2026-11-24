@@ -1,0 +1,25 @@
+{
+  "name": "pdf",
+  "version": "0.1.0",
+  "description": "PDF/扫描件/图片/Office，经 docparse 子进程解析为统一文档模型",
+  "entry": "adapter:load",
+  "enabled": true,
+  "input_schema": {
+    "type": "object",
+    "required": ["path"],
+    "properties": {
+      "path": {
+        "type": "string",
+        "description": "PDF/图片/Office 文件或目录"
+      },
+      "options": {
+        "type": "object",
+        "description": "可选 mode=auto|page|region；docparse 配置由核心 context 注入"
+      }
+    }
+  },
+  "output_schema": {
+    "type": "object",
+    "description": "ConnectorResult：documents + issues；Document.metadata.docparse_ir 供核心结构化切块"
+  }
+}

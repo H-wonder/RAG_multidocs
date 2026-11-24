@@ -13,8 +13,9 @@
 | --- | --- | --- |
 | 统一 `Document` / `Chunk` 模型 | 完成 | `src/rag_multidocs/model.py` |
 | 内置 TXT Connector | 完成 | `src/rag_multidocs/connectors/txt.py` |
-| 内置 PDF/扫描件/Office Connector | 代码完成，真实 OCR 待验证 | `connectors/pdf.py`，子进程调用 docparse |
+| 独立 PDF/扫描件/Office 插件 | 插件化完成，真实 OCR 待验证 | `connectors/connector_pdf/`，子进程调用 docparse |
 | 独立 Markdown 目录 Connector | 完成 | `connectors/connector_markdown/`，manifest + adapter |
+| 独立 HTML 目录 Connector | 完成 | `connectors/connector_html/`，标准库 html.parser |
 | Connector 契约/注册/错误模型 | 完成 | `contracts.py`、`registry.py` |
 | Milvus 混合检索（dense + BM25） | 完成并通过本地集成测试 | `index_milvus.py`、`milvus_store.py` |
 | 关键词 BM25 回退 | 完成 | `index.py`，Milvus 不可用时自动回退 |
@@ -24,7 +25,7 @@
 | CLI | 完成 | `ingest/search/ask/models/docs/connectors/stats` |
 | 交互式 CLI | 完成 | 直接运行 `rag-cli` 进入 REPL；`/search`、`/ingest`、`/model`、`/keys`、`/setup`、流式问答 |
 | 本地 API Key 管理 | 完成 | `rag-cli setup` / `keys set|list|unset|export`；`.rag/credentials.json`（0600、gitignored），环境变量优先 |
-| 单元测试 | 50 passed | `pytest -q -m "not integration"` |
+| 单元测试 | 55 passed | `pytest -q -m "not integration"` |
 | Milvus 集成测试 | 1 passed（本地隔离容器） | `pytest -q -m integration` |
 | CI | unit/integration 均通过（PR #1） | 仓库根 `.github/workflows/ci.yml` |
 | README/设计文档/环境文档 | 已完成，需随版本更新 | `README.md`、`docs/DESIGN.docx` |
@@ -74,7 +75,7 @@
 | ID | 任务 | 建议 | 说明 |
 | --- | --- | --- | --- |
 | P2-1 | 简易 Web 检索页 | C（有余力） | FastAPI + 单页：连接器列表、导入、检索/问答结果带来源；复用 Core |
-| P2-2 | HTML Connector | B（有余力） | 与 Markdown 二选一；不要同时做两套扩展机制 |
+| P2-2 | HTML 插件增强 | B（有余力） | 已有基础 HTML 插件；可补表格/链接/正文清洗，仍用同一 manifest+adapter |
 | P2-3 | SimHash 去重 | B/C 协商 | 参考 `已有资源/代码/dedup.py`；重复文档不入索引 |
 | P2-4 | 增量清单 | B/C 协商 | SQLite manifest；内容变化升 version，删除文件清理索引 |
 | P2-5 | 查询扩写/重排 | C（有余力） | 可选接入 DashScope/DeepSeek；失败静默降级 |
@@ -88,8 +89,11 @@
 ### B：多模态 / 独立扩展 / 文档验收
 
 **你接手的目标**：证明多模态和扩展真实可用，并让设计文档与实现一致。
+当前 PDF/Markdown/HTML 已统一为 `manifest + adapter` 插件；B 仍需至少对其中一个插件
+做实质测试/改进并通过 PR 提交，形成自己的贡献与 Review 记录。
 
 1. **P0-1 PDF/扫描件验收**
+   - 插件位置：`connectors/connector_pdf/`；先跑 `rag-cli connectors list` 确认 `pdf` 已加载；
    - 准备 `samples/pdfs/`：一个原生文本 PDF、一个扫描件/图片；
    - 原生 PDF：`rag-cli ingest --source pdf ...`，核对页数、`section_path`、表格块；
    - 扫描件：启动 Ollama + docparse，记录 OCR 耗时、失败模式、是否需要 `region`；
@@ -101,11 +105,12 @@
 3. **P1-1 / P1-4 / P1-5 / P1-6**
    - `models test`：至少测一个 embedding + 一个 chat provider；无 Key 时给出明确提示；
    - 问答引用测试：引用编号/来源对应；无证据拒答；prompt 长度上限；
-   - PDF 契约测试：IR → Document/Chunk 的页码、章节、表格断言；
+   - PDF 契约测试：已有假 docparse 的插件测试；B 补真实样例的 IR → Document/Chunk 断言；
    - mock LLM HTTP：请求体、401/429/超时/畸形响应。
-4. **可选 P2-2 / P2-6**：HTML Connector、bbox 截图高亮；只在 P0/P1 完成后做。
+4. **可选 P2-2 / P2-6**：HTML 插件增强（表格/链接/正文清洗）、bbox 截图高亮；
+   只在 P0/P1 完成后做。
 
-**B 的验收**：PDF 成功/失败可复现；扩展接入前后 `git diff -- src/rag_multidocs` 为空；
+**B 的验收**：PDF 成功/失败可复现；B 的插件 PR 对 `src/rag_multidocs/` 的 diff 为空；
 `pytest -m "not integration"` 全绿；文档与实现一致。
 
 ### C：索引 / 问答 / CI / 发布
@@ -171,8 +176,8 @@ Release 记录完整；新目录可运行。
 
 | 任务书要求 | 当前状态 | 还需做什么 |
 | --- | --- | --- |
-| 一个核心场景 | 已实现 TXT/Markdown/PDF 接入 + 检索/问答 | P0-1/P0-3 真实验收 |
-| 一种扩展机制 + 一个独立扩展 | Markdown manifest/adapter | B 补契约测试与禁用验证记录 |
+| 一个核心场景 | 已实现 TXT/Markdown/HTML/PDF 接入 + 检索/问答 | P0-1/P0-3 真实验收 |
+| 一种扩展机制 + 一个独立扩展 | Markdown/PDF/HTML 共用 manifest/adapter | 明确 B 作为至少一个插件的作者并补 Review 记录 |
 | 扩展接入不改核心 | 已满足 | 保留 `git diff -- src/rag_multidocs` 记录 |
 | 正常/边界/失败测试 | 25 unit + 1 integration | P0-1/P0-4/P1-5/P1-6 |
 | 构建/测试命令 + CI 真实成功 | unit 已成功 | integration 实跑并记录 |

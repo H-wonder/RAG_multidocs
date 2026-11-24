@@ -19,7 +19,8 @@ docker start milvus-standalone
 curl -s http://localhost:9091/healthz
 ```
 
-PDF/扫描件需要额外的 docparse 环境，Ollama 用于 OCR；不处理 PDF 时可以先跳过。
+PDF/扫描件由 `connector_pdf` 独立插件处理，需要额外的 docparse 环境，Ollama 用于 OCR；
+不处理 PDF 时可以先跳过。Markdown 和 HTML 插件不需要额外服务。
 只用关键词索引的离线模式：
 
 ```bash
@@ -110,7 +111,10 @@ rag-cli ingest --source txt --path samples/notes.txt
 # Markdown 目录（独立 Connector）
 rag-cli ingest --source connector.markdown --path samples/markdown
 
-# PDF（需要 docparse 环境）
+# HTML 目录（独立 Connector）
+rag-cli ingest --source connector.html --path samples/html
+
+# PDF（独立 Connector，需要 docparse 环境）
 rag-cli ingest --source pdf --path /path/to/file.pdf
 
 # 检索
@@ -222,4 +226,4 @@ ruff check src tests connectors
 MILVUS_URI=http://localhost:19530 pytest -q -m integration
 ```
 
-当前基线：离线单元测试 50 passed，Milvus 集成测试 1 passed（需要可用的 Milvus 服务）。
+当前基线：离线单元测试 55 passed，Milvus 集成测试 1 passed（需要可用的 Milvus 服务）。

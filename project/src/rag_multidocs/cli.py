@@ -8,10 +8,9 @@ import json
 import os
 import shlex
 import sys
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 
 from .config import Settings
-from .connectors.pdf import DocparseOptions, PdfConnector
 from .connectors.txt import TxtConnector
 from .contracts import ConnectorError
 from .credentials import (
@@ -105,18 +104,10 @@ def build_registry(settings: Settings) -> ConnectorRegistry:
     registry = ConnectorRegistry(
         plugins_dir=settings.connectors_dir,
         enabled=set(settings.enabled_connectors),
+        context={"settings": asdict(settings)},
     )
+    # 核心只内置 TXT；PDF/Markdown/HTML 都从 connectors_dir 以插件方式加载。
     registry.register(TxtConnector())
-    registry.register(
-        PdfConnector(
-            DocparseOptions(
-                repo=settings.docparse_repo,
-                python=settings.docparse_python or sys.executable,
-                mode=settings.docparse_mode,
-                timeout_s=settings.docparse_timeout_s,
-            )
-        )
-    )
     return registry
 
 

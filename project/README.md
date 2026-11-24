@@ -28,23 +28,22 @@ rag-cli            # 进入交互模式，直接输入问题
 ## 用户、场景与范围
 
 **谁**：需要检索课程资料的教师/学生。
-**什么情况**：手头有 TXT、Markdown、PDF/扫描件等多来源资料，希望统一导入后按关键词检索，
+**什么情况**：手头有 TXT、Markdown、HTML、PDF/扫描件等多来源资料，希望统一导入后按关键词检索，
 并能看到命中来自哪个文件、哪一页、哪一节。
 **输入 → 处理 → 输出**：
 
 ```text
-TXT / Markdown / PDF ──► Connector ──► Document ──► Chunk ──► Milvus（dense+BM25）
+TXT / Markdown / HTML / PDF ──► Connector ──► Document ──► Chunk ──► Milvus（dense+BM25）
                                                                   │          或 keyword 回退
 用户查询 ─────────────────────────────────────────────────────────┘
         └──► 命中文本 + source + page + section_path
               └──►（可选）LLM 依据命中生成答案 + [编号] 引用
 ```
 
-**基础能力（内置）**：
+**基础能力（核心内置）**：
 
 - 统一 `Document` / `Chunk` 模型；
 - 内置 TXT Connector（单文件或目录）；
-- 内置 PDF/扫描件/Office Connector（通过 docparse 子进程，可选）；
 - Milvus 混合检索：dense 向量 + 服务端 BM25，命中带 `source/page/section_path`；
 - 本地 BM25 关键词索引：Milvus 不可用时的离线回退；
 - 检索增强问答：`rag-cli ask` 把命中证据交给 OpenAI 兼容 LLM，输出答案 + 引用；
@@ -55,11 +54,12 @@ TXT / Markdown / PDF ──► Connector ──► Document ──► Chunk ─�
   `.rag/credentials.json`（0600、gitignore），环境变量优先；
 - 接入失败的结构化错误（`FILE_NOT_FOUND`、`EMPTY_SOURCE`、`PARSE_ERROR` 等）。
 
-**独立扩展**：
+**独立扩展（manifest + adapter，核心源码不改）**：
 
 - `connectors/connector_markdown/`：Markdown 目录 Connector；
-- 通过 `manifest.json + adapter.py` 接入，核心源码不改；
-- 禁用后 TXT/PDF 与检索仍可用。
+- `connectors/connector_pdf/`：PDF/扫描件/Office，经 docparse 子进程解析；
+- `connectors/connector_html/`：HTML 目录，标准库提取标题与可见正文；
+- 禁用任一插件后，TXT 与其余插件仍可用。
 
 **本次不做什么**：
 
@@ -126,7 +126,7 @@ rag-cli setup
 | `chat_provider` | 空 | `deepseek`/`dashscope`/`openai`/`ollama`；空表示不启用问答 |
 | `chat_model` | 空 | 空表示用 provider 默认模型 |
 | `rag_top_k` | 5 | 问答检索证据条数 |
-| `docparse_repo` / `docparse_python` | 空 | PDF 多模态解析 |
+| `docparse_repo` / `docparse_python` | 空 | PDF 插件：docparse 多模态解析 |
 | `credentials_file` | `.rag/credentials.json` | 本地 API Key 文件（0600，已 gitignore） |
 
 ### 3. 导入与检索
@@ -137,6 +137,12 @@ rag-cli ingest --source txt --path samples/notes.txt
 
 # 独立 Markdown Connector（默认启用）
 rag-cli ingest --source connector.markdown --path samples/markdown
+
+# 独立 HTML Connector（默认启用）
+rag-cli ingest --source connector.html --path samples/html
+
+# 独立 PDF Connector（需要 docparse 环境）
+rag-cli ingest --source pdf --path samples/some.pdf
 
 # 检索（带来源）
 rag-cli search "表格"
@@ -242,8 +248,8 @@ MILVUS_URI=http://localhost:19530 pytest -q -m integration
 ```text
 CLI ──► Core（IngestService / SearchService / ConnectorRegistry）
              │
-             ├── 内置 Connector：TXT、PDF/扫描件/Office（docparse 子进程）
-             └── 独立扩展：Markdown 目录（connectors/connector_markdown）
+             ├── 内置 Connector：TXT
+             ├── 独立插件：Markdown / PDF-docparse / HTML（manifest + adapter）
              │
              ├── MilvusIndex（dense + BM25，主）
              │     └── Embedder（bge / DashScope / OpenAI / Ollama / hashing）
@@ -258,15 +264,25 @@ CLI ask ──► SearchService ──► RagQA（证据 + 引用）──► Ch
 扩展目录：
 
 ```text
-connectors/connector_markdown/
-├── manifest.json
-├── adapter.py
-└── README.md
+connectors/
+├── connector_markdown/
+│   ├── manifest.json
+│   ├── adapter.py
+│   └── README.md
+├── connector_pdf/
+│   ├── manifest.json
+│   ├── adapter.py
+│   └── README.md
+└── connector_html/
+    ├── manifest.json
+    ├── adapter.py
+    └── README.md
 ```
 
 核心通过 `ConnectorRegistry` 扫描 `connectors_dir`，读取 `manifest.json`，
-按 `entry` 加载 `adapter.py`。扩展只依赖 `rag_multidocs.model` 与
-`rag_multidocs.contracts`，不 import 核心内部实现。
+按 `entry` 加载 `adapter.py`，并把 `context["settings"]`（普通 dict）传给插件。
+扩展只依赖 `rag_multidocs.model` 与 `rag_multidocs.contracts`，不 import 核心
+`ingest`/`cli`/`Settings` 等内部实现。
 
 启用/禁用：
 
@@ -274,10 +290,15 @@ connectors/connector_markdown/
 rag-cli connectors list
 rag-cli connectors disable connector.markdown
 rag-cli connectors enable connector.markdown
+rag-cli connectors disable pdf
+rag-cli connectors disable connector.html
 ```
 
-禁用后核心仍可完成 TXT 导入与检索；重新启用后同一检索入口命中 Markdown 资料。
+禁用后核心仍可完成 TXT 导入与检索；重新启用后同一检索入口命中对应插件资料。
 接入/禁用不需要修改 `src/rag_multidocs/`，也不需要重新构建核心。
+
+PDF 插件通过 `context["settings"]` 读取 `docparse_repo` / `docparse_python` /
+`docparse_mode`；没有 docparse 时返回 `CONNECTOR_UNAVAILABLE`，不影响其他插件。
 
 ### 接入时核心源码不变的核验
 
@@ -292,7 +313,9 @@ git diff --stat -- src/rag_multidocs
 | --- | --- |
 | 正常 | TXT 导入 → 检索命中文档/片段，断言 `source` |
 | 边界/失败 | 路径不存在、空文件、空目录、未知 Connector、禁用 Connector |
-| 扩展接入 | Markdown 目录导入 → 同一检索入口命中；禁用后核心仍可用 |
+| 扩展接入 | Markdown / HTML 导入 → 同一检索入口命中；禁用后核心仍可用 |
+| PDF 插件 | 假 docparse 子进程 → IR → Document/Chunk；禁用/未配置错误路径 |
+| HTML 插件 | `<title>`/可见正文提取；script/style 不进索引；空目录/错误扩展名 |
 | PDF 映射 | docparse IR → Document/Chunk，断言页码、章节、表格块 |
 | 回退 | Milvus 不可用时自动回退 keyword，并打印 WARN |
 | Milvus 集成 | `@pytest.mark.integration`：写入 → dense+BM25 检索 → 来源断言 |
@@ -344,8 +367,10 @@ MIT 简洁、便于课程展示与后续复用；第三方/来源代码的许可
 
 - Milvus 主检索已接入 dense + BM25；关键词回退仍是词面检索，同义改写召回有限；
 - 本地嵌入首次运行需下载 bge 模型；换模型必须新建同维度集合；
-- PDF/扫描件依赖外部 docparse 与 Ollama，未配置时返回
-  `CONNECTOR_UNAVAILABLE`，不影响 TXT/Markdown；
+- PDF/扫描件插件依赖外部 docparse 与 Ollama，未配置时返回
+  `CONNECTOR_UNAVAILABLE`，不影响 TXT/Markdown/HTML；
+- 真实扫描件 OCR 尚未做端到端验收；契约测试使用假 docparse 子进程，不依赖模型；
+- HTML 插件只提取可见正文，不还原复杂布局、CSS 或表格合并单元格；
 - 中文分词为单字 + 二元组，未做领域词典；
 - 关键词回退索引为本地 JSON，适合课程规模；Milvus 主路径由 Docker 卷持久化；
 - 生成式问答需要外部 LLM API 或本地 Ollama；支持流式输出，未实现多轮记忆；
@@ -362,8 +387,8 @@ P0/P1/P2 任务、负责人建议、验收标准和课程要求对照见
 本项目基于作者此前的多模态文档入库工程（DocFlow）演化：
 
 - 复用/改编：统一文档模型、切块、关键词索引、插件注册、Milvus 检索思路、docparse 封装；
-- 本次新增：课程项目 CLI、TXT/Markdown Connector 契约与实现、错误模型、测试、
-  CI、设计文档、release 模板；
+- 本次新增：课程项目 CLI、TXT 内置 Connector、Markdown/PDF/HTML 插件契约与实现、
+  错误模型、测试、CI、设计文档、release 模板；
 - 原工程的 Airflow 编排、邮件通知、人工复核未纳入本项目。
 
 来源与许可明细见 [../已有资源/文档/06-来源许可与依赖.md](../已有资源/文档/06-来源许可与依赖.md)

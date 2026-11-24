@@ -1,18 +1,11 @@
-"""docparse Connector：把 PDF / 扫描件 / Office 文档接入统一文档模型。
+"""独立 PDF/docparse 插件：PDF / 扫描件 / Office → 统一 Document。
 
-这是对 ``任务二/vendor/docparse`` 的薄封装：core 通过子进程调用 docparse CLI，
-拿到 IR JSON 后映射成 ``Document``。多模态识别（OCR、版面分析、表格/公式）
-全部留在 docparse 内部，课程项目核心不需要 import 它的任何模块。
+核心通过 ``manifest.json`` 发现本插件，按 ``adapter:load`` 调用 ``load``。
+插件只依赖公开的 ``rag_multidocs.contracts`` / ``rag_multidocs.model``，
+不 import 核心的 ingest、cli 或旧 ``connectors.pdf`` 实现。
 
-适用场景（可选进阶）：
-- 课程项目的扩展 Connector 想做 PDF/扫描件，而不只是 Markdown；
-- 想演示“多模态文档识别 → 统一文档模型 → 切块 → 检索”的完整链路。
-
-依赖：
-- 可运行的 docparse 环境（Python 3.10+，Ollama + Xiaomi-OCR-0，见 docparse README）；
-- 纯文本 PDF 不需要模型，docparse 会走原生抽取。
-没有配置 docparse 时，PDF Connector 返回 CONNECTOR_UNAVAILABLE；
-TXT/Markdown 接入与关键词检索不受影响。
+多模态识别（OCR、版面分析、表格/公式）留在外部 docparse；
+本插件只负责子进程调用和 IR → Document 映射。
 """
 
 from __future__ import annotations
@@ -27,12 +20,23 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from ..contracts import (
-    ConnectorConfig,
-    ConnectorIssue,
-    ConnectorResult,
-)
-from ..model import Document, sha256_file, stable_doc_id
+try:
+    from rag_multidocs.contracts import (
+        ConnectorConfig,
+        ConnectorError,
+        ConnectorIssue,
+        ConnectorResult,
+    )
+    from rag_multidocs.model import Document, sha256_file, stable_doc_id
+except ImportError:  # 源码目录直接运行时，允许从 project/src 导入
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
+    from rag_multidocs.contracts import (
+        ConnectorConfig,
+        ConnectorError,
+        ConnectorIssue,
+        ConnectorResult,
+    )
+    from rag_multidocs.model import Document, sha256_file, stable_doc_id
 
 
 class DocparseUnavailable(RuntimeError):
@@ -278,6 +282,62 @@ class PdfConnector:
         return ConnectorResult(documents=documents, issues=issues)
 
 
+def _settings(context: dict[str, Any] | None) -> dict[str, Any]:
+    """核心传入的公共配置 dict；插件不依赖 Settings 类型。"""
+    value = (context or {}).get("settings", {})
+    return value if isinstance(value, dict) else {}
+
+
+def load(payload: dict[str, Any], context: dict[str, Any] | None = None) -> ConnectorResult:
+    """Plugin entrypoint: load(payload, context) -> ConnectorResult."""
+    options = dict(payload.get("options") or {})
+    raw_path = payload.get("path") or options.get("path")
+    if not raw_path:
+        raise ConnectorError("INVALID_CONFIG", "缺少 path")
+
+    settings = _settings(context)
+    repo = (
+        options.get("docparse_repo")
+        or settings.get("docparse_repo")
+        or os.environ.get("DOCPARSE_REPO", "")
+    )
+    python = (
+        options.get("docparse_python")
+        or settings.get("docparse_python")
+        or os.environ.get("DOCPARSE_PYTHON")
+        or sys.executable
+    )
+    mode = (
+        options.get("mode")
+        or settings.get("docparse_mode")
+        or os.environ.get("DOCPARSE_MODE", "auto")
+    )
+    timeout_raw = (
+        options.get("docparse_timeout_s")
+        or settings.get("docparse_timeout_s")
+        or os.environ.get("DOCPARSE_TIMEOUT_S", 1800)
+    )
+    try:
+        timeout_s = int(timeout_raw)
+    except (TypeError, ValueError):
+        timeout_s = 1800
+
+    connector = PdfConnector(
+        DocparseOptions(
+            repo=str(repo or ""),
+            python=str(python),
+            mode=str(mode),
+            timeout_s=timeout_s,
+        )
+    )
+    config = ConnectorConfig(
+        name=str(payload.get("name") or "pdf"),
+        path=str(raw_path),
+        options=options,
+    )
+    return connector.load(config)
+
+
 __all__ = [
     "DocparseConnector",
     "DocparseOptions",
@@ -285,5 +345,6 @@ __all__ = [
     "DocparseUnavailable",
     "PdfConnector",
     "document_from_ir",
+    "load",
     "load_ir",
 ]
