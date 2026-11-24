@@ -7,7 +7,7 @@ import os
 from dataclasses import asdict, dataclass, field, fields
 from pathlib import Path
 
-DEFAULT_CONNECTORS = ["txt", "pdf", "connector.markdown"]
+DEFAULT_CONNECTORS = ["txt", "pdf", "connector.markdown", "connector.html"]
 
 
 @dataclass

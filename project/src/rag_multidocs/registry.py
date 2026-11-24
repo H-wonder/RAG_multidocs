@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -63,9 +64,12 @@ class ConnectorRegistry:
         self,
         plugins_dir: str | Path | None = None,
         enabled: set[str] | None = None,
+        context: dict[str, Any] | None = None,
     ):
         self.plugins_dir = Path(plugins_dir) if plugins_dir else None
         self.enabled = set(enabled) if enabled is not None else None
+        # 公共只读上下文：核心把配置以普通 dict 传给插件，插件不需要 import Settings。
+        self.context = dict(context or {})
         self._builtins: dict[str, Connector] = {}
 
     # ---------------------------------------------------------------- built-ins
@@ -135,16 +139,17 @@ class ConnectorRegistry:
                     )
                 ]
             )
+        module_key = f"rag_multidocs_plugin_{info.name.replace('.', '_')}"
         try:
-            spec = importlib.util.spec_from_file_location(
-                f"rag_multidocs_plugin_{info.name.replace('.', '_')}", adapter_path
-            )
+            spec = importlib.util.spec_from_file_location(module_key, adapter_path)
             if spec is None or spec.loader is None:
                 raise ImportError(f"无法加载插件 {info.name}")
             module = importlib.util.module_from_spec(spec)
+            # dataclasses 会按模块名查 sys.modules；动态插件必须先注册。
+            sys.modules[module_key] = module
             spec.loader.exec_module(module)
             func = getattr(module, func_name)
-            raw = func(config.as_dict(), {})
+            raw = func(config.as_dict(), self.context)
             return self._normalize(raw)
         except ConnectorError as exc:
             return ConnectorResult(
@@ -160,6 +165,8 @@ class ConnectorRegistry:
                     )
                 ]
             )
+        finally:
+            sys.modules.pop(module_key, None)
 
     @staticmethod
     def _normalize(raw: Any) -> ConnectorResult:

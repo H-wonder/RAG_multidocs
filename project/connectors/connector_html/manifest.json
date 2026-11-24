@@ -1,0 +1,21 @@
+{
+  "name": "connector.html",
+  "version": "0.1.0",
+  "description": "递归读取 HTML 文件，提取标题与可见正文，转换为统一文档模型",
+  "entry": "adapter:load",
+  "enabled": true,
+  "input_schema": {
+    "type": "object",
+    "required": ["path"],
+    "properties": {
+      "path": {
+        "type": "string",
+        "description": "HTML 文件或目录"
+      }
+    }
+  },
+  "output_schema": {
+    "type": "object",
+    "description": "ConnectorResult：documents + issues"
+  }
+}

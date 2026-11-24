@@ -38,10 +38,10 @@ PDF 论文和扫描件中。直接按文件翻找效率低；把资料简单拼�
 
 **核心场景的完成条件**：
 
-1. TXT 与 Markdown 两种来源都能导入；
+1. TXT、Markdown、HTML 三种轻量来源都能导入；
 2. 至少一条查询命中正确文档或片段，且返回 `source`；
 3. 路径不存在、空文件、空目录、未知/禁用 Connector 均有结构化错误；
-4. 禁用独立 Markdown Connector 后，TXT 导入与检索仍可用；
+4. 禁用任一独立插件后，TXT 导入与检索仍可用；
 5. 上述行为由自动化测试断言，CI 可重复执行。
 
 ### 1.3 本次范围
@@ -50,7 +50,7 @@ PDF 论文和扫描件中。直接按文件翻找效率低；把资料简单拼�
 
 - 统一 `Document` / `Chunk` 模型；
 - 内置 TXT Connector（单文件或目录）；
-- 内置 PDF/扫描件/Office Connector（通过外部 docparse 子进程，可选）；
+- 独立 PDF/扫描件/Office 插件（通过外部 docparse 子进程，可选）；
 - Milvus 混合检索（dense 向量 + 服务端 BM25），命中带来源；
 - BM25 关键词索引与本地持久化，作为 Milvus 不可用时的回退；
 - 嵌入后端：本地 bge-small-zh / DashScope / OpenAI / Ollama / hashing（CI 冒烟）；
@@ -58,7 +58,8 @@ PDF 论文和扫描件中。直接按文件翻找效率低；把资料简单拼�
 - 交互式 CLI：直接运行 `rag-cli` 进入 REPL，`/search`、`/ingest`、`/model`、`/keys`、`/setup`；
 - 本地 API Key：`.rag/credentials.json`（0600、gitignore），环境变量优先；
 - Connector 注册表（内置 + manifest/adapter 插件）；
-- 独立 Markdown 目录 Connector；
+- 独立 Markdown / HTML 目录插件，独立 PDF/docparse 插件；
+- 插件通用 `context`：核心把配置以普通 dict 传给插件，插件不 import `Settings`；
 - CLI：`ingest/search/ask/models/docs/connectors/stats/keys/setup/repl`；
 - 测试、CI、README、使用说明、设计文档、release 模板。
 
@@ -79,8 +80,8 @@ PDF 论文和扫描件中。直接按文件翻找效率低；把资料简单拼�
 ```text
 CLI ──► Core（IngestService / SearchService / ConnectorRegistry）
              │
-             ├── 内置 Connector：TXT、PDF/扫描件/Office
-             ├── 独立扩展：Markdown 目录（manifest + adapter）
+             ├── 内置 Connector：TXT
+             ├── 独立插件：Markdown / PDF-docparse / HTML（manifest + adapter）
              └── IndexBackend
                    ├── MilvusIndex（dense + BM25，主）──► Docker Milvus
                    │        └── Embedder（bge / DashScope / hashing）
@@ -89,15 +90,15 @@ CLI ──► Core（IngestService / SearchService / ConnectorRegistry）
 CLI ask ──► SearchService ──► RagQA（证据 + [n] 引用）──► ChatModel
                                               （DeepSeek/DashScope/OpenAI/Ollama）
 
-PDF Connector ──子进程──► docparse conda env ──loopback──► Ollama
+PDF 插件 ──子进程──► docparse conda env ──loopback──► Ollama
 ```
 
 | 模块 | 职责 | 依赖 |
 | --- | --- | --- |
-| `cli.py` | 参数解析、结果展示、退出码 | Core、Connector 实现 |
+| `cli.py` | 参数解析、结果展示、退出码；构建 registry context | Core、内置 Txt |
 | `ingest.py` | 调用 Connector、切块、写入索引 | 契约、Chunker、Index |
 | `search.py` | 查询索引并返回命中 | Index |
-| `registry.py` | 按名称发现/加载内置与插件 Connector | 契约、manifest |
+| `registry.py` | 按名称发现/加载内置与插件 Connector；传公共 context | 契约、manifest |
 | `contracts.py` | `ConnectorConfig/Result/Issue/Error` 公开契约 | 无 |
 | `model.py` | `Document`、`Chunk`、稳定 id | 标准库 |
 | `chunking.py` | TXT/Markdown/IR 切块 | `model` |
@@ -111,8 +112,9 @@ PDF Connector ──子进程──► docparse conda env ──loopback──�
 | `repl.py` | 交互式会话、斜杠命令、历史记录、流式渲染 | 标准库 readline |
 | `wizard.py` | `setup` 两步向导（chat/embedding + Key） | 标准库 |
 | `connectors/txt.py` | 内置 TXT 接入 | 契约、`model` |
-| `connectors/pdf.py` | 内置 docparse 子进程接入 | 契约、`model` |
-| `connectors/connector_markdown/` | 独立 Markdown 扩展 | 契约、`model` |
+| `connectors/connector_markdown/` | 独立 Markdown 插件 | 契约、`model` |
+| `connectors/connector_pdf/` | 独立 PDF/docparse 插件 | 契约、`model`、外部 docparse |
+| `connectors/connector_html/` | 独立 HTML 插件 | 契约、`model`、标准库 html.parser |
 
 ### 2.2 核心与扩展边界
 
@@ -121,8 +123,10 @@ PDF Connector ──子进程──► docparse conda env ──loopback──�
 - 独立扩展只依赖 `rag_multidocs.contracts` 和 `rag_multidocs.model`，
   不 import `IngestService`、`CLI`、索引后端的内部实现；
 - 索引后端通过 `IndexBackend` 统一接口注入，Core 不按 Milvus/keyword 分支；
-- PDF 解析放在外部进程，paddle/torch 等重依赖不进入核心环境；
-- 新增数据源只需增加插件目录和 manifest，不修改 `src/rag_multidocs/`。
+- PDF 插件把解析放在外部 docparse 子进程，paddle/torch 等重依赖不进入核心环境；
+- 新增数据源只需增加插件目录和 manifest，不修改 `src/rag_multidocs/`；
+- 插件通过 registry 的公共 `context["settings"]` 读取 docparse 等配置，
+  不需要 import 核心 `Settings`。
 
 ## 3. 模块设计
 
@@ -183,6 +187,19 @@ class Connector(Protocol):
     name: str
     def load(self, config: ConnectorConfig) -> ConnectorResult: ...
 ```
+
+插件 adapter 的公开入口是：
+
+```python
+def load(payload: dict, context: dict | None = None) -> ConnectorResult:
+    ...
+```
+
+- `payload`：`{"name", "path", "options"}`；
+- `context`：核心传入的只读 dict，当前为 `{"settings": {...}}`；
+  PDF 插件从中读取 `docparse_repo` / `docparse_python` / `docparse_mode`；
+- 有结构化 IR 的插件设置 `Document.metadata["docparse_ir"]`，
+  核心 `IngestService` 会走 `chunk_docparse_ir`；否则按普通文本切块。
 
 错误约定：
 
@@ -302,17 +319,28 @@ question
 ### 4.1 插件目录与 manifest
 
 ```text
-connectors/connector_markdown/
-├── manifest.json
-├── adapter.py
-└── README.md
+connectors/
+├── connector_markdown/
+│   ├── manifest.json
+│   ├── adapter.py
+│   └── README.md
+├── connector_pdf/
+│   ├── manifest.json
+│   ├── adapter.py
+│   └── README.md
+└── connector_html/
+    ├── manifest.json
+    ├── adapter.py
+    └── README.md
 ```
+
+PDF 插件的 manifest：
 
 ```json
 {
-  "name": "connector.markdown",
+  "name": "pdf",
   "version": "0.1.0",
-  "description": "递归读取 Markdown 目录",
+  "description": "PDF/扫描件/图片/Office，经 docparse 子进程解析",
   "entry": "adapter:load",
   "enabled": true,
   "input_schema": {"type": "object", "required": ["path"]}
@@ -321,29 +349,45 @@ connectors/connector_markdown/
 
 核心 `ConnectorRegistry` 扫描 `connectors_dir` 下的 `manifest.json`，按 `entry`
 加载 `adapter.py`，调用 `load(payload, context)`。`payload` 包含
-`name/path/options`，返回值规范化为 `ConnectorResult`。
+`name/path/options`；`context["settings"]` 是核心传入的只读配置 dict；
+返回值规范化为 `ConnectorResult`。插件名 `pdf` 保持不变，因此
+`rag-cli ingest --source pdf` 的用法不变。
 
 ### 4.2 独立扩展接入示例
 
-Markdown 目录 Connector 的行为：
+以 PDF 插件为例：
 
-1. 输入可以是单文件或目录，目录递归读取 `.md`/`.markdown`；
-2. 标题取第一个 `# ` 标题，否则用文件名；
-3. `source` 使用相对路径，保证 doc_id 稳定；
-4. 单文件读取失败记录 `READ_ERROR`，其他文件继续；
-5. 空目录抛 `EMPTY_SOURCE`。
+1. 输入可以是单个 PDF/图片/Office 文件，也可以是目录；
+2. 插件从 `context["settings"]` 读取 `docparse_repo` / `docparse_python` /
+   `docparse_mode`，从 `payload["options"]` 读取 `mode` 覆盖；
+3. 通过子进程调用 `python -m docparse parse ... --format md,json`；
+4. 原生文本 PDF 走 docparse 原生抽取；扫描件/图片/坏文本层才走 OCR；
+5. 插件把 IR 映射成 `Document`，设置 `metadata["docparse_ir"]`；
+   核心 `IngestService` 识别后走结构化切块；
+6. 路径不存在、扩展名不支持、docparse 不可用、解析失败分别返回
+   `FILE_NOT_FOUND` / `UNSUPPORTED_TYPE` / `CONNECTOR_UNAVAILABLE` /
+   `PARSE_ERROR`。
 
 接入：
 
 ```bash
-rag-cli ingest --source connector.markdown --path samples/markdown
+rag-cli ingest --source pdf --path samples/some.pdf
 ```
 
-核心源码不变：扩展只新增 `connectors/connector_markdown/`，无需修改
+Markdown/HTML 插件同理：
+
+```bash
+rag-cli ingest --source connector.markdown --path samples/markdown
+rag-cli ingest --source connector.html --path samples/html
+```
+
+核心源码不变：三个扩展只新增 `connectors/connector_*` 目录，无需修改
 `src/rag_multidocs/`。禁用：
 
 ```bash
+rag-cli connectors disable pdf
 rag-cli connectors disable connector.markdown
+rag-cli connectors disable connector.html
 rag-cli ingest --source txt --path samples/notes.txt   # 核心仍可用
 ```
 
@@ -353,6 +397,8 @@ rag-cli ingest --source txt --path samples/notes.txt   # 核心仍可用
 - 新增 `ConnectorIssue.code` 属于增量变更，CLI 原样展示，不破坏旧代码；
 - `ConnectorResult` 当前为 `documents + issues`；若未来增加字段，保持默认值，
   避免旧插件返回列表时失效；
+- `context` 是只读 dict，新增键属于增量变更；插件应忽略不认识的键；
+- `Document.metadata["docparse_ir"]` 是结构化切块的公开约定；不设置则按文本切块；
 - 暂不要求多版本插件同时运行；不兼容变更在 README/设计文档中说明。
 
 ## 5. 关键业务流程
@@ -362,7 +408,7 @@ rag-cli ingest --source txt --path samples/notes.txt   # 核心仍可用
 以 Markdown 导入为例：
 
 1. 用户执行 `rag-cli ingest --source connector.markdown --path samples/markdown`；
-2. CLI 读取 `config.json`，构建 `ConnectorRegistry`（内置 TXT/PDF + 插件）；
+2. CLI 读取 `config.json`，构建 `ConnectorRegistry`（内置 TXT + Markdown/PDF/HTML 插件）；
 3. `IngestService` 按名称调用 Connector，得到 `Document` 列表；
 4. 扩展返回 `Document`；核心不关心它来自哪种文件格式；
 5. `Chunker` 按标题层级生成 `section_path`，按 token 预算装箱，生成确定性 id；
@@ -373,8 +419,8 @@ rag-cli ingest --source txt --path samples/notes.txt   # 核心仍可用
    两者都返回 `source/page/section_path`。
 
 **失败分支**：路径不存在时 Connector 返回 `FILE_NOT_FOUND`，`IngestService`
-不抛异常，CLI 打印错误并以退出码 2 结束；其他已成功文档不受影响。PDF 解析器
-不可用时返回 `CONNECTOR_UNAVAILABLE`，TXT/Markdown 仍可导入。
+不抛异常，CLI 打印错误并以退出码 2 结束；其他已成功文档不受影响。PDF 插件
+不可用时返回 `CONNECTOR_UNAVAILABLE`，TXT/Markdown/HTML 仍可导入。
 
 ## 6. 数据与配置
 
@@ -408,13 +454,13 @@ rag-cli ingest --source txt --path samples/notes.txt   # 核心仍可用
 | --- | --- | --- |
 | `data_dir` | `data` | 关键词回退索引落盘目录 |
 | `connectors_dir` | `connectors` | 插件目录 |
-| `enabled_connectors` | txt/pdf/connector.markdown | 启用的 Connector |
+| `enabled_connectors` | txt/pdf/connector.markdown/connector.html | 启用的 Connector（TXT 内置，其余为插件） |
 | `index_backend` | `milvus` | `milvus`（主）或 `keyword`（离线） |
 | `fallback_to_keyword` | `true` | Milvus 不可用时是否回退 |
 | `milvus_uri` | `http://localhost:19530` | Milvus 地址 |
 | `milvus_db` / `milvus_collection` | `rag` / `rag_chunks` | 数据库/集合 |
 | `milvus_dense_weight` / `milvus_sparse_weight` | 0.7 / 0.3 | 融合权重 |
-| `embed_backend` | `local` | `local`/`dashscope`/`hashing` |
+| `embed_backend` | `local` | `local`/`dashscope`/`openai`/`ollama`/`hashing` |
 | `embed_model` / `embed_dim` | 空 / 0 | 空/0 用 provider 默认；须与集合维度一致 |
 | `embed_base_url` | 空 | 覆盖 embedding base URL |
 | `chat_provider` | 空 | 空表示不启用问答；可选 deepseek/dashscope/openai/ollama |
@@ -451,9 +497,12 @@ rag-cli ingest --source txt --path samples/notes.txt   # 核心仍可用
 | --- | --- | --- |
 | 正常 | TXT 导入后检索 | 命中文档，`source=notes.txt`，正文包含关键词 |
 | 正常 | Markdown 扩展导入 | 命中 `guide.md`，`section_path` 含“表格” |
-| 扩展 | 禁用 Markdown 后导入 | `CONNECTOR_DISABLED`；TXT 仍成功 |
+| 正常 | HTML 扩展导入 | 命中标题/可见正文；script/style 不进索引 |
+| 扩展 | 禁用 Markdown/HTML/PDF 插件 | `CONNECTOR_DISABLED`；TXT 仍成功 |
 | 边界 | 空文件、空目录 | `EMPTY_FILE`、`EMPTY_SOURCE` |
 | 失败 | 路径不存在、未知 Connector | `FILE_NOT_FOUND`、`CONNECTOR_NOT_FOUND` |
+| PDF 插件 | 假 docparse 子进程 → IR → Document | 标题/来源/IR 元数据/检索命中正确 |
+| PDF 错误 | 未配置 docparse | `CONNECTOR_UNAVAILABLE`，不影响其他插件 |
 | 契约 | docparse IR 映射 | 页码、章节、表格块正确 |
 | CLI | `ingest/search/ask/models/docs/connectors` | 输出与退出码 |
 | 幂等 | 同一文档重复导入 | 块数不翻倍 |
@@ -465,8 +514,8 @@ rag-cli ingest --source txt --path samples/notes.txt   # 核心仍可用
 | 凭证 | set/list/unset/apply | 0600 权限、环境变量优先、脱敏、导出语句 |
 | 交互式 | REPL 命令解析与裸命令 | `/help`、别名、未知命令提示、配置持久化 |
 
-当前结果：离线单元测试 50 passed；Milvus 集成测试 1 passed（本地隔离容器）；
-PR #1 的 GitHub Actions unit/integration 均通过。
+当前结果：离线单元测试 55 passed；Milvus 集成测试 1 passed（本地隔离容器）；
+GitHub Actions run #8（`f6f5b52`）的 unit/integration 两个 job 均通过。
 
 ### 7.2 CI 与静态检查
 
@@ -475,7 +524,8 @@ PR #1 的 GitHub Actions unit/integration 均通过。
     `ruff check src tests connectors`，`pytest -q -m "not integration"`；
   - **integration job**：Docker 起 `milvusdb/milvus:v2.5.6`，
     `pip install -e ".[dev,milvus]"`，`MILVUS_URI=... pytest -q -m integration`；
-- unit 测试不依赖 Milvus、Ollama 或网络；PDF 解析器不可用的错误路径也纳入测试；
+- unit 测试不依赖 Milvus、Ollama 或网络；PDF 插件用假 docparse 子进程测试 IR 映射，
+  不调用真实 OCR，另测 docparse 未配置的错误路径；
 - 集成测试用 `HashingEmbedder`，不下载模型，只验证写入/检索链路；
 - 风格检查使用 ruff（仅 E4/E7/E9/F，避免无关格式噪音）。
 
@@ -497,14 +547,18 @@ PR #1 的 GitHub Actions unit/integration 均通过。
 | API Key 环境变量优先 + 可选本地凭证 | CI 仍可只用环境变量；交互使用可保存到 0600 本地文件 | 本地文件是明文；共享机器应优先环境变量或系统密钥环 |
 | provider 预设 + 命令行覆盖 | 用户可换模型/服务，不绑定单一厂商 | 自定义模型需正确填 dim/base_url |
 | Connector 用 manifest + adapter | 扩展可独立目录、独立构建；核心不按类型分支 | 需要维护 manifest 契约；替代方案 setuptools entry points 更“标准”但课程环境配置更重 |
-| PDF 解析放外部 docparse 子进程 | paddle/Ollama 依赖重，隔离失败；核心保持轻量 | 部署多一个环境；替代方案进程内 import 会把重依赖带入核心 |
+| PDF 做成独立插件 + 外部 docparse 子进程 | 多模态能力可插拔；paddle/Ollama 重依赖不进入核心，禁用后其他插件仍可用 | 部署多一个环境；插件配置经 context 传递，比内置实现多一层约定 |
+| Markdown / HTML / PDF 共用一个 manifest + adapter 机制 | 不引入第二套扩展机制；三个插件可独立启用/禁用/测试 | 插件目录和契约需要持续维护；不是热加载，改插件后需重启 |
 | 关键词回退索引存本地 JSON | 课程规模足够、可检查、易演示 | 大规模并发/增量更新不适合；Milvus 主路径不受此限制 |
 | 生成答案必须带检索引用 | 课程重点是接入—索引—检索闭环；答案可核对 | 无证据时拒答；未配置 chat 时只返回检索证据 |
 
 ### 8.2 已知限制
 
 - 中文关键词回退分词为单字 + 二元组，未做领域词典；
-- PDF/扫描件依赖 docparse 与 Ollama，未配置时 PDF 不可用；
+- PDF 插件依赖 docparse 与 Ollama；未配置时返回 `CONNECTOR_UNAVAILABLE`，
+  不影响 TXT/Markdown/HTML；
+- 真实扫描件 OCR 尚未端到端验收；单元测试用假 docparse 覆盖插件调用链；
+- HTML 插件只提取可见正文，不还原复杂 CSS 布局或合并单元格；
 - Milvus 需要 Docker 和 2.5+；嵌入模型维度必须与集合一致；
 - 未实现查询扩写/重排、多轮对话记忆；
 - 生成式问答依赖外部 LLM 或本地 Ollama；未配置时只能检索；
@@ -514,8 +568,9 @@ PR #1 的 GitHub Actions unit/integration 均通过。
 
 ### 8.3 后续计划
 
-1. 增加 HTML Connector（与 Markdown 二选一即可，不重复造第二套扩展机制）；
-2. 增加重排/查询扩写（可选），保留关键词回退与来源字段；
-3. 增加增量清单（SQLite）与 SimHash 去重；
-4. 增加 Web 适配器（FastAPI + 单页检索），复用同一 Core；
-5. 增加更多真实课程资料样例与回归测试。
+1. 补充真实扫描件/图片 OCR 验收（启动 Ollama + Xiaomi-OCR-0，记录页数、耗时、失败模式）；
+2. 增强 HTML 插件（表格、链接、正文清洗），保持 manifest/adapter 机制不变；
+3. 增加重排/查询扩写（可选），保留关键词回退与来源字段；
+4. 增加增量清单（SQLite）与 SimHash 去重；
+5. 增加 Web 适配器（FastAPI + 单页检索），复用同一 Core；
+6. 增加更多真实课程资料样例与回归测试。

@@ -1,6 +1,4 @@
 from rag_multidocs.cli import build_runtime
-from rag_multidocs.connectors.pdf import PdfConnector, DocparseOptions
-from rag_multidocs.contracts import ConnectorConfig
 
 
 def test_missing_path_returns_structured_issue(runtime):
@@ -48,10 +46,13 @@ def test_disabled_markdown_connector_does_not_break_txt(settings, tmp_path, proj
     assert report.ok
 
 
-def test_pdf_connector_without_docparse_returns_unavailable(tmp_path):
+def test_pdf_plugin_without_docparse_returns_unavailable(settings, tmp_path):
     pdf = tmp_path / "a.pdf"
     pdf.write_bytes(b"%PDF-1.4 fake")
-    connector = PdfConnector(DocparseOptions(repo=""))
-    result = connector.load(ConnectorConfig(name="pdf", path=str(pdf)))
-    assert not result.documents
-    assert result.issues[0].code == "CONNECTOR_UNAVAILABLE"
+    settings.enabled_connectors = ["pdf"]
+    settings.docparse_repo = ""
+
+    report = build_runtime(settings).ingest.ingest("pdf", str(pdf))
+
+    assert not report.ok
+    assert report.issues[0].code == "CONNECTOR_UNAVAILABLE"

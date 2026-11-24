@@ -4,7 +4,8 @@
   "enabled_connectors": [
     "txt",
     "pdf",
-    "connector.markdown"
+    "connector.markdown",
+    "connector.html"
   ],
   "index_backend": "milvus",
   "fallback_to_keyword": true,
