@@ -202,6 +202,12 @@ export RAG_CREDENTIALS=/path/to/credentials.json
 说明终端 `TERM=dumb`。REPL 会在 TTY 下自动切换到 `xterm-256color`；
 如果仍不正常，启动前执行 `export TERM=xterm-256color`。
 
+**复制/粘贴不工作**
+REPL 本身支持粘贴，注意终端的快捷键：`Ctrl+C` 是中断当前输入，不是复制；
+Linux/VSCode 终端通常用 `Ctrl+Shift+C` / `Ctrl+Shift+V`，macOS 用 `Cmd+C` / `Cmd+V`。
+API Key 输入使用 `getpass`，粘贴后不会回显，这是正常的，粘贴完直接回车。
+如果仍然异常，先确认 `TERM` 不是 `dumb`，并升级终端/readline。
+
 **提示未配置 chat provider**
 说明当前只配置了检索。运行 `/setup` 选择 chat 模型并填 Key，
 或继续只用 `/search`；也可以 `rag-cli models use --kind chat --provider none`

@@ -1,3 +1,4 @@
+import rag_multidocs.repl as repl
 from rag_multidocs.config import Settings
 from rag_multidocs.repl import Session
 
@@ -64,3 +65,16 @@ def test_repl_bare_q_alias_quits(tmp_path):
     session = Session(str(_config(tmp_path)))
     session.dispatch("q")
     assert session._running is False
+
+
+def test_repl_prompt_marks_ansi_as_nonprinting(monkeypatch):
+    monkeypatch.setattr(repl, "readline", object())
+    monkeypatch.setattr(
+        repl, "_color", lambda text, code: f"\033[{code}m{text}\033[0m"
+    )
+
+    prompt = repl._input_prompt("rag> ", "1;32")
+
+    assert prompt.startswith("\001")
+    assert prompt.endswith("\002")
+    assert "rag> " in prompt

@@ -78,6 +78,18 @@ def _color(text: str, code: str) -> str:
     return f"\033[{code}m{text}\033[0m"
 
 
+def _input_prompt(text: str, code: str) -> str:
+    """Colored prompt with readline non-printing markers.
+
+    readline 需要 ``\\001``/``\\002`` 包住 ANSI 转义，否则会把颜色码算进
+    光标列数；在长命令、粘贴和退格时会出现错位或粘贴内容异常。
+    """
+    prompt = _color(text, code)
+    if readline is not None and prompt != text:
+        return f"\001{prompt}\002"
+    return prompt
+
+
 def _print_hits(hits: list[dict], snippet_chars: int = 120) -> None:
     if not hits:
         print("no hits")
@@ -524,7 +536,7 @@ def run_repl(config_path: str = "config.json") -> int:
         print(f"[WARN] {warning}", file=sys.stderr)
     print("直接输入问题开始；/help 查看命令，输入 exit 或 Ctrl-D 退出。")
 
-    prompt = _color("rag> ", "1;32")
+    prompt = _input_prompt("rag> ", "1;32")
     try:
         while session._running:
             try:
