@@ -141,7 +141,7 @@ class Session:
                     "正在加载索引与嵌入模型（首次可能需要几秒）...",
                     file=sys.stderr,
                 )
-            from .app import build_runtime
+            from .runtime import build_runtime
 
             runtime = build_runtime(self.settings)
             if runtime.warning:

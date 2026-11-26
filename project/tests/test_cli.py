@@ -92,7 +92,7 @@ def test_cli_ask_with_fake_chat_model(tmp_path, project_root, capsys, monkeypatc
             return "检索器负责取回段落 [1]。"
 
     monkeypatch.setattr(
-        "rag_multidocs.cli.app.build_chat_model",
+        "rag_multidocs.cli.commands.ask.build_chat_model",
         lambda *args, **kwargs: FakeChat(),
     )
     code = main(

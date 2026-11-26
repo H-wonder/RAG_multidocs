@@ -74,7 +74,7 @@ def test_discover_ollama_falls_back_to_tags(monkeypatch):
 
 def test_cli_models_discover(monkeypatch, capsys, tmp_path):
     monkeypatch.setattr(
-        "rag_multidocs.cli.app.discover_models",
+        "rag_multidocs.cli.commands.models.discover_models",
         lambda provider, kind=None, timeout=10.0: ["m1", "m2"],
     )
 

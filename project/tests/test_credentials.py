@@ -146,7 +146,7 @@ def test_cli_keys_set_list_unset(tmp_path, capsys, monkeypatch):
 def test_cli_keys_set_hidden_input_path(tmp_path, capsys, monkeypatch):
     from argparse import Namespace
 
-    from rag_multidocs.cli.app import cmd_keys_set
+    from rag_multidocs.cli.commands.keys import cmd_keys_set
 
     class FakeTTY:
         def isatty(self):
@@ -154,9 +154,10 @@ def test_cli_keys_set_hidden_input_path(tmp_path, capsys, monkeypatch):
 
     config = _config(tmp_path)
     monkeypatch.setattr(
-        "rag_multidocs.cli.app.getpass.getpass", lambda prompt="": "sk-hidden-123456"
+        "rag_multidocs.cli.commands.keys.getpass.getpass",
+        lambda prompt="": "sk-hidden-123456",
     )
-    monkeypatch.setattr("rag_multidocs.cli.app.sys.stdin", FakeTTY())
+    monkeypatch.setattr("rag_multidocs.cli.commands.keys.sys.stdin", FakeTTY())
 
     args = Namespace(config=str(config), provider="deepseek", env=None, value=None)
     assert cmd_keys_set(args) == 0
