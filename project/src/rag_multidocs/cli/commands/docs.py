@@ -30,4 +30,24 @@ def cmd_docs(args: argparse.Namespace) -> int:
     return 0
 
 
-__all__ = ["cmd_docs"]
+def cmd_docs_show(args: argparse.Namespace) -> int:
+    settings = Settings.load(args.config)
+    runtime = build_runtime(settings)
+    if runtime.warning:
+        print(f"[WARN] {runtime.warning}", file=sys.stderr)
+    docs = runtime.index.list_docs()
+    for doc in docs:
+        if doc["doc_id"] == args.doc_id:
+            if args.json:
+                print(json.dumps(doc, ensure_ascii=False, indent=2))
+            else:
+                print(f"doc_id: {doc['doc_id']}")
+                print(f"source: {doc['source']}")
+                print(f"chunks: {doc['chunks']}")
+                print(f"pages:  {doc['pages']}")
+            return 0
+    print(f"[DOC_NOT_FOUND] 未找到文档: {args.doc_id}", file=sys.stderr)
+    return 2
+
+
+__all__ = ["cmd_docs", "cmd_docs_show"]

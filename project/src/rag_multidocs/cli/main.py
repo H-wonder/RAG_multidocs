@@ -10,9 +10,12 @@ from ..contracts import ConnectorError
 from ..credentials import apply_keys
 from .commands import (
     cmd_ask,
+    cmd_chunks_list,
+    cmd_chunks_show,
     cmd_connectors_list,
     cmd_connectors_toggle,
     cmd_docs,
+    cmd_docs_show,
     cmd_ingest,
     cmd_keys_export,
     cmd_keys_list,
@@ -149,12 +152,34 @@ def build_parser() -> argparse.ArgumentParser:
     add_config(models_test)
     models_test.set_defaults(func=cmd_models_test)
 
-    docs = sub.add_parser("docs", help="文档列表")
+    docs = sub.add_parser("docs", help="文档列表与详情")
     docs_sub = docs.add_subparsers(dest="docs_command", required=True)
     docs_list = docs_sub.add_parser("list")
     docs_list.add_argument("--json", action="store_true")
     add_config(docs_list)
     docs_list.set_defaults(func=cmd_docs)
+
+    docs_show = docs_sub.add_parser("show", help="查看文档详情")
+    docs_show.add_argument("doc_id", help="文档 id")
+    docs_show.add_argument("--json", action="store_true")
+    add_config(docs_show)
+    docs_show.set_defaults(func=cmd_docs_show)
+
+    chunks = sub.add_parser("chunks", help="浏览 chunk 内容")
+    chunks_sub = chunks.add_subparsers(dest="chunks_command", required=True)
+
+    chunks_list = chunks_sub.add_parser("list", help="列出某文档的 chunk")
+    chunks_list.add_argument("--doc-id", help="按文档过滤")
+    chunks_list.add_argument("--page", type=int, default=None, help="按页过滤")
+    chunks_list.add_argument("--json", action="store_true")
+    add_config(chunks_list)
+    chunks_list.set_defaults(func=cmd_chunks_list)
+
+    chunks_show = chunks_sub.add_parser("show", help="查看单个 chunk")
+    chunks_show.add_argument("chunk_id", help="chunk id")
+    chunks_show.add_argument("--json", action="store_true")
+    add_config(chunks_show)
+    chunks_show.set_defaults(func=cmd_chunks_show)
 
     connectors = sub.add_parser("connectors", help="Connector 列表与启停")
     connectors_sub = connectors.add_subparsers(dest="connectors_command", required=True)

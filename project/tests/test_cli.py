@@ -245,3 +245,33 @@ def test_cli_ask_llm_error_keeps_evidence(tmp_path, project_root, capsys, monkey
     assert "Key" in captured.err  # 401 -> 建议含"Key"
     assert "检索证据已保留" in captured.out
     assert "notes.txt" in captured.out  # 证据（hits）被保留
+
+
+def test_cli_docs_show_and_chunks(tmp_path, project_root, capsys):
+    from rag_multidocs.cli import build_runtime
+
+    config = _config(tmp_path, project_root)
+    txt = tmp_path / "notes.txt"
+    txt.write_text("检索增强生成需要检索器和生成器。", encoding="utf-8")
+    assert main(
+        ["ingest", "--source", "txt", "--path", str(txt), "--config", str(config)]
+    ) == 0
+    capsys.readouterr()
+
+    runtime = build_runtime(Settings.load(config))
+    doc_id = runtime.index.list_docs()[0]["doc_id"]
+    chunk_id = runtime.index.list_chunks(doc_id=doc_id)[0]["id"]
+
+    assert main(["docs", "show", doc_id, "--config", str(config)]) == 0
+    out = capsys.readouterr().out
+    assert "notes.txt" in out and "chunks:" in out
+
+    assert main(
+        ["chunks", "list", "--doc-id", doc_id, "--config", str(config)]
+    ) == 0
+    out = capsys.readouterr().out
+    assert chunk_id in out
+
+    assert main(["chunks", "show", chunk_id, "--config", str(config)]) == 0
+    out = capsys.readouterr().out
+    assert "检索增强生成" in out

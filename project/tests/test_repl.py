@@ -229,3 +229,24 @@ def test_repl_last_empty_hint(tmp_path, capsys):
     session = Session(str(_config(tmp_path)))
     session.dispatch("/last")
     assert "还没有检索过" in capsys.readouterr().err
+
+
+def test_repl_chunks_list_and_show(tmp_path, capsys):
+    config = _config(tmp_path)
+    txt = tmp_path / "notes.txt"
+    txt.write_text("检索增强生成需要检索器和生成器。", encoding="utf-8")
+
+    session = Session(str(config))
+    session.dispatch(f"/ingest txt {txt}")
+    capsys.readouterr()
+
+    doc_id = session.runtime.index.list_docs()[0]["doc_id"]
+    chunk_id = session.runtime.index.list_chunks(doc_id=doc_id)[0]["id"]
+
+    session.dispatch(f"/chunks list --doc-id {doc_id}")
+    out = capsys.readouterr().out
+    assert chunk_id in out
+
+    session.dispatch(f"/chunks show {chunk_id}")
+    out = capsys.readouterr().out
+    assert "检索增强生成" in out

@@ -224,6 +224,25 @@ class KeywordIndex:
             entry["pages"] = max(entry["pages"], int(data.get("page", 0) or 0))
         return sorted(grouped.values(), key=lambda item: item["source"])
 
+    def list_chunks(
+        self, doc_id: str | None = None, page: int | None = None
+    ) -> list[dict]:
+        """列出 chunk；可按 doc_id / page 过滤，按 index 排序。"""
+        chunks = []
+        for data in self.chunks.values():
+            if doc_id and data.get("doc_id") != doc_id:
+                continue
+            if page is not None and int(data.get("page", 0) or 0) != page:
+                continue
+            chunks.append(data)
+        return sorted(
+            chunks, key=lambda c: (int(c.get("index", 0) or 0), c.get("id", ""))
+        )
+
+    def get_chunk(self, chunk_id: str) -> dict | None:
+        """返回单个 chunk 的完整数据；不存在返回 None。"""
+        return self.chunks.get(chunk_id)
+
     def stats(self) -> dict:
         return {
             "backend": self.name,

@@ -43,6 +43,8 @@ HELP = """\
 /ask <问题>                   检索并生成答案
 /ingest <source> <path>       导入文档，例如 /ingest txt samples/notes.txt
 /docs [<doc_id>]              文档列表；加 doc_id 查看详情
+/chunks list [--doc-id <id>]  列出 chunk（可 --page N）
+/chunks show <chunk_id>       查看单个 chunk 全文
 /last                         查看上次检索/问答的命中
 /open <n>                     查看第 n 条命中的来源详情
 /history                      显示命令历史
@@ -225,6 +227,66 @@ class Session:
                 print(f"pages:  {doc['pages']}")
                 return
         print(f"未找到文档: {doc_id}", file=sys.stderr)
+
+    def cmd_chunks(self, args: list[str]) -> None:
+        if not args:
+            print("用法: /chunks [list|show] ...", file=sys.stderr)
+            return
+        action = args[0]
+        if action == "list":
+            self._chunks_list(args[1:])
+        elif action == "show":
+            self._chunks_show(args[1:])
+        else:
+            print("用法: /chunks [list|show] ...", file=sys.stderr)
+
+    def _chunks_list(self, args: list[str]) -> None:
+        doc_id = None
+        page = None
+        index = 0
+        while index < len(args):
+            item = args[index]
+            if item == "--doc-id" and index + 1 < len(args):
+                doc_id = args[index + 1]
+                index += 1
+            elif item == "--page" and index + 1 < len(args):
+                page = int(args[index + 1])
+                index += 1
+            index += 1
+        chunks = self.runtime.index.list_chunks(doc_id=doc_id, page=page)
+        if not chunks:
+            print("no chunks")
+            return
+        for chunk in chunks:
+            section = (
+                f" §{chunk.get('section_path')}"
+                if chunk.get("section_path")
+                else ""
+            )
+            snippet = (chunk.get("text") or "").replace("\n", " ")[:80]
+            print(
+                f"{chunk['id']}  p{chunk.get('page', 0)}"
+                f"  {chunk.get('content_type', 'text')}{section}"
+            )
+            print(f"    {snippet}")
+
+    def _chunks_show(self, args: list[str]) -> None:
+        if not args:
+            print("用法: /chunks show <chunk_id>", file=sys.stderr)
+            return
+        chunk = self.runtime.index.get_chunk(args[0])
+        if chunk is None:
+            print(f"[CHUNK_NOT_FOUND] 未找到 chunk: {args[0]}", file=sys.stderr)
+            return
+        for key in (
+            "id", "doc_id", "source", "index", "content_type",
+            "section_path", "page", "page_end", "bbox",
+        ):
+            value = chunk.get(key)
+            if value not in ("", None, 0):
+                print(f"{key}: {value}")
+        print("text:")
+        print(chunk.get("text", ""))
 
     def cmd_last(self, args: list[str]) -> None:
         if not self._last_hits:
