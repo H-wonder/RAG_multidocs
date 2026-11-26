@@ -156,3 +156,34 @@ def test_repl_models_test_embedding(tmp_path, capsys, monkeypatch):
     session.dispatch("/models test embedding")
     out = capsys.readouterr().out
     assert "dim=512" in out
+
+
+def test_key_summary_distinguishes_available(tmp_path, monkeypatch):
+    session = Session(str(_config(tmp_path)))
+    monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
+    assert session._key_summary("DEEPSEEK_API_KEY") == "不可用"
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "sk-abc123")
+    assert session._key_summary("DEEPSEEK_API_KEY").startswith("可用")
+    assert session._key_summary("") == "无需"
+
+
+def test_model_embedding_hints_collection_keyword(tmp_path, capsys):
+    session = Session(str(_config(tmp_path)))
+    session.dispatch("/model embedding local")
+    out = capsys.readouterr().out
+    assert "keyword 模式" in out
+
+
+def test_model_embedding_hints_collection_milvus(tmp_path, capsys):
+    settings = Settings(
+        data_dir=str(tmp_path / "data"),
+        index_backend="milvus",
+        credentials_file=str(tmp_path / "credentials.json"),
+    )
+    path = tmp_path / "config.json"
+    settings.save(path)
+    session = Session(str(path))
+    session.dispatch("/model embedding local")
+    out = capsys.readouterr().out
+    assert "rag_chunks" in out
+    assert "建议新集合" in out

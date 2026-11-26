@@ -484,12 +484,19 @@ def cmd_models_use(args: argparse.Namespace) -> int:
             settings.embed_model = args.model or ""
             settings.embed_dim = args.dim if args.dim is not None else 0
             settings.embed_base_url = args.base_url or ""
+            dim = settings.embed_dim or preset.default_dim
             print(
                 f"embedding -> {settings.embed_backend}"
                 f" model={settings.embed_model or preset.default_model}"
-                f" dim={settings.embed_dim or preset.default_dim}"
+                f" dim={dim}"
             )
-            print("注意：换嵌入模型/维度后需要新的 Milvus 集合，旧向量不能复用。")
+            if settings.index_backend == "milvus":
+                print(
+                    f"将使用 Milvus 集合 {settings.milvus_collection}（dim={dim}）；"
+                    f"换模型/维度建议新集合 {settings.milvus_collection}_d{dim}"
+                )
+            else:
+                print("当前 keyword 模式，暂不涉及 Milvus 集合。")
         else:
             preset = chat_provider(args.provider)
             settings.chat_provider = args.provider

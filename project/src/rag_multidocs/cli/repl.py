@@ -532,12 +532,20 @@ class Session:
                 self.settings.embed_backend = provider
                 self.settings.embed_model = model
                 self.settings.embed_dim = dim or 0
+                resolved_dim = dim or preset.default_dim
                 print(
                     f"embedding -> {provider}"
                     f" model={model or preset.default_model}"
-                    f" dim={dim or preset.default_dim}"
+                    f" dim={resolved_dim}"
                 )
-                print("注意：换 embedding 模型/维度后需要新的 Milvus 集合。")
+                if self.settings.index_backend == "milvus":
+                    print(
+                        f"将使用 Milvus 集合 {self.settings.milvus_collection}"
+                        f"（dim={resolved_dim}）；换模型/维度建议新集合 "
+                        f"{self.settings.milvus_collection}_d{resolved_dim}"
+                    )
+                else:
+                    print("当前 keyword 模式，暂不涉及 Milvus 集合。")
                 rebuild = True
         except ValueError as exc:
             print(f"[CONFIG_ERROR] {exc}", file=sys.stderr)
@@ -762,8 +770,8 @@ class Session:
             return "无需"
         source = source_of(env_name)
         if not source:
-            return "未设置"
-        return f"{mask(os.environ.get(env_name, ''))} ({source})"
+            return "不可用"
+        return f"可用 {mask(os.environ.get(env_name, ''))} ({source})"
 
 
 def _stream_token(token: str) -> None:
