@@ -54,8 +54,10 @@ HELP = """\
 /ingest <source> <path>       导入文档，例如 /ingest txt samples/notes.txt
 /docs                         文档列表
 /stats                        索引统计
+/doctor [--full] [--json]     诊断配置、依赖服务与索引
 /connectors                   连接器列表
 /models                       模型 provider 列表
+/models test [embedding|chat] 真实调用验证 provider（可 --provider X）
 /model                        打开 chat/embedding 交互选择菜单
 /model <chat|embedding> <provider> [模型名] [--dim N]
                               直接设置模型并写入 config.json；
@@ -64,7 +66,10 @@ HELP = """\
 /keys set <provider>          输入并保存 API Key（不回显）
 /keys unset <provider>        删除已保存的 Key
 /setup                        两步配置 chat/embedding 模型 + 填 Key
-/config                       查看当前配置（不显示 Key）
+/config                       查看当前配置（简版）
+/config show                  完整分组展示配置
+/config validate              校验配置合法性
+/config profiles [list|apply] 预设方案查看/切换
 /clear                        清屏
 /exit, /quit, /q              退出（Ctrl-D 也可以）
 """
@@ -264,6 +269,14 @@ class Session:
         for key, value in data.items():
             print(f"{key}: {value}")
 
+    def cmd_doctor(self, args: list[str]) -> None:
+        from .doctor import render, run_checks
+
+        full = "--full" in args
+        json_out = "--json" in args
+        results = run_checks(self.settings, self.config_path, full=full)
+        print(render(results, json_output=json_out))
+
     def cmd_connectors(self, args: list[str]) -> None:
         settings = self.settings
         enabled = set(settings.enabled_connectors)
@@ -276,6 +289,9 @@ class Session:
             print(f"[{mark}] {info.name:24} plugin{suffix}")
 
     def cmd_models(self, args: list[str]) -> None:
+        if args and args[0] == "test":
+            self._models_test(args[1:])
+            return
         settings = self.settings
         for item in list_embedding_providers():
             name = item["name"]
@@ -294,6 +310,42 @@ class Session:
                 f"[{mark}] chat      {name:10} {item['default_model']}"
                 f"  key={key}"
             )
+
+    def _models_test(self, args: list[str]) -> None:
+        from .model_test import render, run_model_tests
+
+        kind = None
+        provider = ""
+        model = ""
+        base_url = ""
+        dim = 0
+        json_out = False
+        index = 0
+        while index < len(args):
+            item = args[index]
+            if item in ("embedding", "chat"):
+                kind = item
+            elif item == "--provider" and index + 1 < len(args):
+                provider = args[index + 1]
+                index += 1
+            elif item == "--model" and index + 1 < len(args):
+                model = args[index + 1]
+                index += 1
+            elif item == "--base-url" and index + 1 < len(args):
+                base_url = args[index + 1]
+                index += 1
+            elif item == "--dim" and index + 1 < len(args):
+                dim = int(args[index + 1])
+                index += 1
+            elif item == "--json":
+                json_out = True
+            index += 1
+
+        results = run_model_tests(
+            self.settings, kind, provider, model, base_url, dim
+        )
+        for result in results:
+            print(render(result, json_output=json_out))
 
     def _ask_line(self, prompt: str) -> str | None:
         try:
@@ -576,6 +628,23 @@ class Session:
             self.reload_settings(rebuild=True)
 
     def cmd_config(self, args: list[str]) -> None:
+        if not args:
+            self._config_brief()
+            return
+        sub = args[0]
+        if sub == "show":
+            self._config_show(args[1:])
+        elif sub == "validate":
+            self._config_validate(args[1:])
+        elif sub == "profiles":
+            self._config_profiles(args[1:])
+        else:
+            print(
+                f"未知 config 子命令: {sub}（show / validate / profiles）",
+                file=sys.stderr,
+            )
+
+    def _config_brief(self) -> None:
         settings = self.settings
         print(f"config: {Path(self.config_path)}")
         print(f"index: {settings.index_backend} collection={settings.milvus_collection}")
@@ -593,6 +662,63 @@ class Session:
         else:
             print("chat: 未启用（只检索）")
         print(f"credentials: {credentials_path(settings.credentials_file)}")
+
+    def _config_show(self, args: list[str]) -> None:
+        from .config_cmd import _SHOW_GROUPS, _format_value
+
+        if "--json" in args:
+            import json
+
+            print(json.dumps(self.settings.to_dict(), ensure_ascii=False, indent=2))
+            return
+        print(f"config: {self.config_path}")
+        for title, keys in _SHOW_GROUPS:
+            print(f"[{title}]")
+            for key in keys:
+                print(f"  {key}: {_format_value(getattr(self.settings, key))}")
+
+    def _config_validate(self, args: list[str]) -> None:
+        from .config_cmd import validate_settings
+
+        issues = validate_settings(self.settings)
+        if "--json" in args:
+            import json
+            from dataclasses import asdict
+
+            print(json.dumps([asdict(i) for i in issues], ensure_ascii=False, indent=2))
+            return
+        if not issues:
+            print("[PASS] 配置有效")
+            return
+        for issue in issues:
+            tag = "FAIL" if issue.level == "fail" else "WARN"
+            print(f"[{tag}] {issue.message}")
+            if issue.suggestion:
+                print(f"      建议: {issue.suggestion}")
+
+    def _config_profiles(self, args: list[str]) -> None:
+        from .config_cmd import PROFILES, _apply_profile
+
+        if not args or args[0] == "list":
+            for name, profile in PROFILES.items():
+                print(f"{name:8} {profile['description']}")
+            return
+        if args[0] == "apply" and len(args) >= 2:
+            name = args[1]
+            if name not in PROFILES:
+                print(
+                    f"[CONFIG_ERROR] 未知 profile: {name}"
+                    f"（可选: {', '.join(PROFILES)}）",
+                    file=sys.stderr,
+                )
+                return
+            _apply_profile(self.settings, name)
+            path = self.settings.save(self.config_path)
+            self._runtime = None  # index backend / provider 变了，重建 runtime
+            print(f"已应用 profile {name}：{PROFILES[name]['description']}")
+            print(f"config -> {path}")
+            return
+        print("用法: /config profiles [list|apply <name>]", file=sys.stderr)
 
     # -- RAG ask ---------------------------------------------------------
     def do_ask(self, question: str) -> None:

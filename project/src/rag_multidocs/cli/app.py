@@ -39,6 +39,9 @@ from ..providers import (
 from ..connectors.registry import ConnectorRegistry
 from ..retrieval import SearchService
 from .wizard import run_setup
+from .doctor import cmd_doctor
+from .model_test import cmd_models_test
+from .config_cmd import cmd_config_profiles, cmd_config_show, cmd_config_validate
 
 
 def add_config(parser: argparse.ArgumentParser) -> None:
@@ -734,6 +737,21 @@ def build_parser() -> argparse.ArgumentParser:
     add_config(models_discover)
     models_discover.set_defaults(func=cmd_models_discover)
 
+    models_test = models_sub.add_parser(
+        "test", help="真实调用一次 provider，验证配置可用"
+    )
+    models_test.add_argument(
+        "--kind", choices=["embedding", "chat"], default=None,
+        help="测哪种；不传则测当前配置的 embedding（+ chat 若已配置）",
+    )
+    models_test.add_argument("--provider", help="覆盖 provider")
+    models_test.add_argument("--model", help="覆盖模型名")
+    models_test.add_argument("--base-url", dest="base_url", help="覆盖 base URL")
+    models_test.add_argument("--dim", type=int, default=None, help="embedding 维度覆盖")
+    models_test.add_argument("--json", action="store_true")
+    add_config(models_test)
+    models_test.set_defaults(func=cmd_models_test)
+
     docs = sub.add_parser("docs", help="文档列表")
     docs_sub = docs.add_subparsers(dest="docs_command", required=True)
     docs_list = docs_sub.add_parser("list")
@@ -795,6 +813,43 @@ def build_parser() -> argparse.ArgumentParser:
     keys_path = keys_sub.add_parser("path", help="显示凭证文件路径")
     add_config(keys_path)
     keys_path.set_defaults(func=cmd_keys_path)
+
+    doctor = sub.add_parser("doctor", help="诊断配置、依赖服务与索引")
+    doctor.add_argument(
+        "--full", action="store_true",
+        help="额外检查 Milvus 集合维度（需连接 Milvus）",
+    )
+    doctor.add_argument("--json", action="store_true")
+    add_config(doctor)
+    doctor.set_defaults(func=cmd_doctor)
+
+    config = sub.add_parser("config", help="查看/校验配置与预设方案")
+    config_sub = config.add_subparsers(dest="config_command", required=True)
+
+    config_show = config_sub.add_parser("show", help="查看当前配置")
+    config_show.add_argument("--json", action="store_true")
+    add_config(config_show)
+    config_show.set_defaults(func=cmd_config_show)
+
+    config_validate = config_sub.add_parser("validate", help="校验配置合法性")
+    config_validate.add_argument("--json", action="store_true")
+    add_config(config_validate)
+    config_validate.set_defaults(func=cmd_config_validate)
+
+    profiles = config_sub.add_parser(
+        "profiles", help="预设方案（offline/local/cloud）"
+    )
+    profiles_sub = profiles.add_subparsers(dest="profiles_command", required=True)
+
+    profiles_list = profiles_sub.add_parser("list", help="列出预设方案")
+    profiles_list.add_argument("--json", action="store_true")
+    add_config(profiles_list)
+    profiles_list.set_defaults(func=cmd_config_profiles)
+
+    profiles_apply = profiles_sub.add_parser("apply", help="应用预设方案")
+    profiles_apply.add_argument("name", help="offline / local / cloud")
+    add_config(profiles_apply)
+    profiles_apply.set_defaults(func=cmd_config_profiles)
 
     setup = sub.add_parser(
         "setup", help="交互式配置 chat + embedding 模型并填入 API Key"

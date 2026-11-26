@@ -100,3 +100,59 @@ def test_model_picker_accepts_custom_model_and_dim(monkeypatch, tmp_path):
 
     assert model == "my-embed-model"
     assert dim == 1024
+
+
+def test_repl_help_lists_new_commands(tmp_path, capsys):
+    session = Session(str(_config(tmp_path)))
+    session.dispatch("/help")
+    out = capsys.readouterr().out
+    assert "/doctor" in out
+    assert "/models test" in out
+    assert "/config validate" in out
+
+
+def test_repl_doctor_outputs_diagnosis(tmp_path, capsys, monkeypatch):
+    monkeypatch.setattr(
+        "rag_multidocs.cli.doctor._tcp_reachable",
+        lambda host, port, timeout=2.0: False,
+    )
+    session = Session(str(_config(tmp_path)))
+    session.dispatch("/doctor")
+    out = capsys.readouterr().out
+    assert any(tag in out for tag in ("[PASS]", "[WARN]", "[FAIL]"))
+
+
+def test_repl_config_show(tmp_path, capsys):
+    session = Session(str(_config(tmp_path)))
+    session.dispatch("/config show")
+    out = capsys.readouterr().out
+    assert "index_backend" in out
+    assert "keyword" in out
+
+
+def test_repl_config_validate(tmp_path, capsys):
+    session = Session(str(_config(tmp_path)))
+    session.dispatch("/config validate")
+    assert "配置有效" in capsys.readouterr().out
+
+
+def test_repl_config_profiles_list(tmp_path, capsys):
+    session = Session(str(_config(tmp_path)))
+    session.dispatch("/config profiles list")
+    out = capsys.readouterr().out
+    assert "offline" in out and "local" in out and "cloud" in out
+
+
+def test_repl_models_test_embedding(tmp_path, capsys, monkeypatch):
+    class FakeEmbedder:
+        def embed(self, texts, query=False):
+            return [[0.0] * 512]
+
+    monkeypatch.setattr(
+        "rag_multidocs.providers.embedding.build_embedder",
+        lambda *args, **kwargs: FakeEmbedder(),
+    )
+    session = Session(str(_config(tmp_path)))
+    session.dispatch("/models test embedding")
+    out = capsys.readouterr().out
+    assert "dim=512" in out
