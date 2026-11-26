@@ -1,4 +1,4 @@
-"""Interactive REPL for RAG Multidocs (``rag-cli`` with no subcommand)."""
+"""交互会话：命令分发与执行。"""
 
 from __future__ import annotations
 
@@ -8,8 +8,8 @@ import shlex
 import sys
 from pathlib import Path
 
-from ..config import Settings
-from ..credentials import (
+from ...config import Settings
+from ...credentials import (
     credentials_path,
     mask,
     permission_warning,
@@ -17,9 +17,8 @@ from ..credentials import (
     source_of,
     unset_key,
 )
-from ..providers.discovery import DiscoveryError, discover_models
-from ..qa.llm import answer_with_evidence, build_chat_model
-from ..providers import (
+from ...providers.discovery import DiscoveryError, discover_models
+from ...providers import (
     chat_provider,
     embedding_provider,
     env_var_for_provider,
@@ -27,23 +26,12 @@ from ..providers import (
     list_embedding_providers,
     providers_for_env,
 )
-from .wizard import run_setup
+from ...qa.llm import answer_with_evidence, build_chat_model
+from ..render import print_hits
+from ..wizard import run_setup
+from .render import color, print_citations, stream_token
 
 ALIASES = {"?": "help", "q": "quit"}
-
-
-def _prepare_terminal() -> None:
-    """Some terminals advertise TERM=dumb, which disables readline editing."""
-    if sys.stdout.isatty() and os.environ.get("TERM", "") in ("", "dumb"):
-        os.environ["TERM"] = "xterm-256color"
-
-
-_prepare_terminal()
-try:  # readline is stdlib on Linux/macOS; Windows users just lose history
-    import readline
-except ImportError:  # pragma: no cover - platform dependent
-    readline = None
-
 
 HELP = """\
 直接输入问题 -> 检索 + 生成答案（配置了 chat 时）
@@ -75,54 +63,6 @@ HELP = """\
 """
 
 
-def _color(text: str, code: str) -> str:
-    if (
-        not sys.stdout.isatty()
-        or os.environ.get("NO_COLOR")
-        or os.environ.get("TERM") == "dumb"
-    ):
-        return text
-    return f"\033[{code}m{text}\033[0m"
-
-
-def _input_prompt(text: str, code: str) -> str:
-    """Colored prompt with readline non-printing markers.
-
-    readline 需要 ``\\001``/``\\002`` 包住 ANSI 转义，否则会把颜色码算进
-    光标列数；在长命令、粘贴和退格时会出现错位或粘贴内容异常。
-    """
-    prompt = _color(text, code)
-    if readline is not None and prompt != text:
-        return f"\001{prompt}\002"
-    return prompt
-
-
-def _print_hits(hits: list[dict], snippet_chars: int = 120) -> None:
-    if not hits:
-        print("no hits")
-        return
-    for rank, hit in enumerate(hits, start=1):
-        section = f"  §{hit['section_path']}" if hit.get("section_path") else ""
-        print(
-            f"[{rank}] {hit['score']:.4f}  {hit['source']}"
-            f" p{hit.get('page', 0)}{section}"
-        )
-        snippet = (hit.get("text") or "").replace("\n", " ")
-        print(f"    {snippet[:snippet_chars]}")
-
-
-def _print_citations(citations: list[dict]) -> None:
-    if not citations:
-        return
-    print("来源：")
-    for citation in citations:
-        section = f" §{citation['section_path']}" if citation["section_path"] else ""
-        print(
-            f"[{citation['index']}] {citation['source']}"
-            f" p{citation['page']}{section}"
-        )
-
-
 class Session:
     """Holds runtime state for one interactive session."""
 
@@ -141,7 +81,7 @@ class Session:
                     "正在加载索引与嵌入模型（首次可能需要几秒）...",
                     file=sys.stderr,
                 )
-            from .runtime import build_runtime
+            from ..runtime import build_runtime
 
             runtime = build_runtime(self.settings)
             if runtime.warning:
@@ -214,7 +154,7 @@ class Session:
         if not hits:
             print("没有检索到相关依据。")
             return
-        _print_hits(hits)
+        print_hits(hits)
 
     def cmd_ask(self, args: list[str]) -> None:
         query = " ".join(args).strip()
@@ -270,7 +210,7 @@ class Session:
             print(f"{key}: {value}")
 
     def cmd_doctor(self, args: list[str]) -> None:
-        from .doctor import render, run_checks
+        from ..doctor import render, run_checks
 
         full = "--full" in args
         json_out = "--json" in args
@@ -312,7 +252,7 @@ class Session:
             )
 
     def _models_test(self, args: list[str]) -> None:
-        from .model_test import render, run_model_tests
+        from ..model_test import render, run_model_tests
 
         kind = None
         provider = ""
@@ -672,7 +612,7 @@ class Session:
         print(f"credentials: {credentials_path(settings.credentials_file)}")
 
     def _config_show(self, args: list[str]) -> None:
-        from .config_cmd import _SHOW_GROUPS, _format_value
+        from ..config_cmd import _SHOW_GROUPS, _format_value
 
         if "--json" in args:
             import json
@@ -686,7 +626,7 @@ class Session:
                 print(f"  {key}: {_format_value(getattr(self.settings, key))}")
 
     def _config_validate(self, args: list[str]) -> None:
-        from .config_cmd import validate_settings
+        from ..config_cmd import validate_settings
 
         issues = validate_settings(self.settings)
         if "--json" in args:
@@ -705,7 +645,7 @@ class Session:
                 print(f"      建议: {issue.suggestion}")
 
     def _config_profiles(self, args: list[str]) -> None:
-        from .config_cmd import PROFILES, _apply_profile
+        from ..config_cmd import PROFILES, _apply_profile
 
         if not args or args[0] == "list":
             for name, profile in PROFILES.items():
@@ -736,7 +676,7 @@ class Session:
             print("没有检索到相关依据。")
             return
         if not settings.chat_provider:
-            _print_hits(hits)
+            print_hits(hits)
             print("提示：未配置 chat provider，以上是检索证据。输入 /setup 选择模型并填入 Key。")
             return
         try:
@@ -749,13 +689,13 @@ class Session:
             )
         except ValueError as exc:
             print(f"[CONFIG_ERROR] {exc}", file=sys.stderr)
-            _print_hits(hits)
+            print_hits(hits)
             return
 
-        print(_color("答案：", "1;36"))
+        print(color("答案：", "1;36"))
         try:
             result = answer_with_evidence(
-                question, hits, chat, on_token=_stream_token
+                question, hits, chat, on_token=stream_token
             )
         except RuntimeError as exc:
             print(f"\n[LLM_ERROR] {exc}", file=sys.stderr)
@@ -763,7 +703,7 @@ class Session:
         print()
         if result["citations"]:
             print()
-            _print_citations(result["citations"])
+            print_citations(result["citations"])
 
     def _key_summary(self, env_name: str) -> str:
         if not env_name:
@@ -774,73 +714,4 @@ class Session:
         return f"可用 {mask(os.environ.get(env_name, ''))} ({source})"
 
 
-def _stream_token(token: str) -> None:
-    print(token, end="", flush=True)
-
-
-def _setup_readline(history_path: Path) -> None:
-    if readline is None:
-        return
-    try:
-        history_path.parent.mkdir(parents=True, exist_ok=True)
-        readline.read_history_file(history_path)
-    except OSError:
-        pass
-    readline.set_history_length(1000)
-
-
-def _save_readline(history_path: Path) -> None:
-    if readline is None:
-        return
-    try:
-        history_path.parent.mkdir(parents=True, exist_ok=True)
-        readline.write_history_file(history_path)
-    except OSError:
-        pass
-
-
-def run_repl(config_path: str = "config.json") -> int:
-    session = Session(config_path)
-    settings = session.settings
-    creds = credentials_path(settings.credentials_file)
-    _setup_readline(creds.parent / "history")
-
-    chat = settings.chat_provider or "未配置"
-    print(_color("RAG Multidocs CLI", "1"))
-    print(
-        f"config={Path(config_path)}  index={settings.index_backend}"
-        f"  chat={chat}  credentials={creds}"
-    )
-    warning = permission_warning(settings.credentials_file)
-    if warning:
-        print(f"[WARN] {warning}", file=sys.stderr)
-    print("直接输入问题开始；/help 查看命令，输入 exit 或 Ctrl-D 退出。")
-
-    prompt = _input_prompt("rag> ", "1;32")
-    try:
-        while session._running:
-            try:
-                line = input(prompt).strip()
-            except EOFError:
-                print()
-                break
-            except KeyboardInterrupt:
-                print()
-                continue
-            if not line:
-                continue
-            try:
-                session.dispatch(line)
-            except KeyboardInterrupt:
-                print("\n[已取消]")
-            except SystemExit:
-                break
-            except Exception as exc:  # 单条命令失败不应退出会话
-                print(f"[ERROR] {exc}", file=sys.stderr)
-    finally:
-        _save_readline(creds.parent / "history")
-    print("bye")
-    return 0
-
-
-__all__ = ["Session", "run_repl"]
+__all__ = ["ALIASES", "HELP", "Session"]
