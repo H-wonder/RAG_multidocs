@@ -189,3 +189,43 @@ def test_model_embedding_hints_collection_milvus(tmp_path, capsys):
     out = capsys.readouterr().out
     assert "rag_chunks" in out
     assert "建议新集合" in out
+
+
+def test_repl_last_and_open(tmp_path, capsys):
+    config = _config(tmp_path)
+    txt = tmp_path / "notes.txt"
+    txt.write_text("检索增强生成需要检索器和生成器。", encoding="utf-8")
+
+    session = Session(str(config))
+    session.dispatch(f"/ingest txt {txt}")
+    capsys.readouterr()
+    session.dispatch("/search 检索器")
+    capsys.readouterr()
+
+    session.dispatch("/last")
+    assert "notes.txt" in capsys.readouterr().out
+
+    session.dispatch("/open 1")
+    out = capsys.readouterr().out
+    assert "source:" in out and "notes.txt" in out
+
+
+def test_repl_docs_detail(tmp_path, capsys):
+    config = _config(tmp_path)
+    txt = tmp_path / "notes.txt"
+    txt.write_text("检索增强生成。", encoding="utf-8")
+
+    session = Session(str(config))
+    session.dispatch(f"/ingest txt {txt}")
+    capsys.readouterr()
+
+    doc_id = session.runtime.index.list_docs()[0]["doc_id"]
+    session.dispatch(f"/docs {doc_id}")
+    out = capsys.readouterr().out
+    assert "doc_id:" in out and "notes.txt" in out
+
+
+def test_repl_last_empty_hint(tmp_path, capsys):
+    session = Session(str(_config(tmp_path)))
+    session.dispatch("/last")
+    assert "还没有检索过" in capsys.readouterr().err

@@ -15,6 +15,7 @@ from dataclasses import asdict, dataclass
 
 from ..config import Settings
 from ..providers import chat_provider, embedding_provider, key_available
+from .errors import classify_error, sanitize
 
 
 @dataclass
@@ -28,28 +29,6 @@ class ModelTestResult:
     reply: str = ""     # chat 回复摘要
     error: str = ""     # 失败原因（不含 Key）
     hint: str = ""      # 可执行建议
-
-
-def _classify(exc: Exception) -> tuple[str, str]:
-    """把异常归到「无 Key / 模型不存在 / 超时 / 限流」等明确类别。"""
-    text = str(exc)
-    lowered = text.lower()
-    if "timed out" in lowered or "timeout" in lowered:
-        return text, "网络超时，检查网络/代理后重试"
-    if "404" in text:
-        return text, "模型名可能不存在，用 rag-cli models discover 查询可用模型"
-    if "401" in text or "403" in text:
-        return text, "API Key 无效或无权限，检查 Key 是否正确"
-    if "429" in text:
-        return text, "触发限流，稍后重试"
-    return text, ""
-
-
-def _sanitize(text: str, secret: str) -> str:
-    """防御性清洗：万一 provider 报错时把 Key 带进消息，替换为 ****。"""
-    if secret and secret in text:
-        return text.replace(secret, "****")
-    return text
 
 
 def test_embedding(
@@ -86,8 +65,8 @@ def test_embedding(
             "embedding", provider, resolved_model, True, latency_ms, dim=actual_dim,
         )
     except Exception as exc:
-        error, hint = _classify(exc)
-        error = _sanitize(error, os.environ.get(preset.api_key_env, ""))
+        error, hint = classify_error(exc)
+        error = sanitize(error, os.environ.get(preset.api_key_env, ""))
         return ModelTestResult(
             "embedding", provider, resolved_model, False, 0, error=error, hint=hint,
         )
@@ -126,8 +105,8 @@ def test_chat(
             "chat", provider, resolved_model, True, latency_ms, reply=snippet,
         )
     except Exception as exc:
-        error, hint = _classify(exc)
-        error = _sanitize(error, os.environ.get(preset.api_key_env, ""))
+        error, hint = classify_error(exc)
+        error = sanitize(error, os.environ.get(preset.api_key_env, ""))
         return ModelTestResult(
             "chat", provider, resolved_model, False, 0, error=error, hint=hint,
         )

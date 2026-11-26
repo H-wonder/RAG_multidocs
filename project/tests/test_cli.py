@@ -190,3 +190,58 @@ def test_models_use_embedding_resets_provider_defaults(tmp_path, project_root, c
     assert settings.embed_backend == "dashscope"
     assert settings.embed_model == "text-embedding-v4"
     assert settings.embed_dim == 1024
+
+
+def test_cli_ingest_directory_shows_progress(tmp_path, project_root, capsys):
+    config = _config(tmp_path, project_root)
+    directory = tmp_path / "docs"
+    directory.mkdir()
+    (directory / "a.txt").write_text("第一个文档。", encoding="utf-8")
+    (directory / "b.txt").write_text("第二个文档。", encoding="utf-8")
+
+    code = main(
+        ["ingest", "--source", "txt", "--path", str(directory),
+         "--config", str(config)]
+    )
+    err = capsys.readouterr().err
+    assert code == 0
+    assert "[1/2]" in err
+    assert "[2/2]" in err
+
+
+def test_cli_ingest_strict_fails_on_issue(tmp_path, project_root, capsys):
+    config = _config(tmp_path, project_root)
+    directory = tmp_path / "docs"
+    directory.mkdir()
+    (directory / "ok.txt").write_text("正常文档。", encoding="utf-8")
+    (directory / "empty.txt").write_text("", encoding="utf-8")  # 空文件 -> EMPTY_FILE
+
+    code = main(
+        ["ingest", "--source", "txt", "--path", str(directory),
+         "--strict", "--config", str(config)]
+    )
+    assert code == 1  # 有 issue，strict 模式返回非 0
+
+
+def test_cli_ask_llm_error_keeps_evidence(tmp_path, project_root, capsys, monkeypatch):
+    config = _config(tmp_path, project_root)
+    txt = tmp_path / "notes.txt"
+    txt.write_text("检索增强生成需要检索器和生成器。", encoding="utf-8")
+    assert main(
+        ["ingest", "--source", "txt", "--path", str(txt), "--config", str(config)]
+    ) == 0
+    capsys.readouterr()
+
+    def boom(*args, **kwargs):
+        raise RuntimeError("HTTP Error 401: Unauthorized")
+
+    monkeypatch.setattr("rag_multidocs.cli.commands.ask.build_chat_model", boom)
+    code = main(
+        ["ask", "检索器", "--provider", "deepseek", "--config", str(config)]
+    )
+    captured = capsys.readouterr()
+    assert code == 2
+    assert "[LLM_ERROR]" in captured.err
+    assert "Key" in captured.err  # 401 -> 建议含"Key"
+    assert "检索证据已保留" in captured.out
+    assert "notes.txt" in captured.out  # 证据（hits）被保留

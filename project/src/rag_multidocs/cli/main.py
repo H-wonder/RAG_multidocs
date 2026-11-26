@@ -79,6 +79,7 @@ def build_parser() -> argparse.ArgumentParser:
     ingest.add_argument("--source", required=True, help="Connector 名称，如 txt/pdf/connector.markdown")
     ingest.add_argument("--path", required=True, help="文件或目录")
     ingest.add_argument("--mode", choices=["auto", "page", "region"], default=None, help="docparse 解析模式")
+    ingest.add_argument("--strict", action="store_true", help="有错误即返回非 0（默认跳过失败文件继续）")
     ingest.add_argument("--json", action="store_true")
     add_config(ingest)
     ingest.set_defaults(func=cmd_ingest)

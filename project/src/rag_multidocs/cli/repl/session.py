@@ -27,8 +27,10 @@ from ...providers import (
     providers_for_env,
 )
 from ...qa.llm import answer_with_evidence, build_chat_model
+from ..errors import classify_error
 from ..render import print_hits
 from ..wizard import run_setup
+from .readline import readline
 from .render import color, print_citations, stream_token
 
 ALIASES = {"?": "help", "q": "quit"}
@@ -40,7 +42,10 @@ HELP = """\
 /search <问题>                只检索，不调用 LLM
 /ask <问题>                   检索并生成答案
 /ingest <source> <path>       导入文档，例如 /ingest txt samples/notes.txt
-/docs                         文档列表
+/docs [<doc_id>]              文档列表；加 doc_id 查看详情
+/last                         查看上次检索/问答的命中
+/open <n>                     查看第 n 条命中的来源详情
+/history                      显示命令历史
 /stats                        索引统计
 /doctor [--full] [--json]     诊断配置、依赖服务与索引
 /connectors                   连接器列表
@@ -71,6 +76,8 @@ class Session:
         self.settings = Settings.load(config_path)
         self._runtime = None
         self._running = True
+        self._last_hits: list[dict] = []
+        self._last_query: str = ""
 
     # -- runtime ---------------------------------------------------------
     @property
@@ -154,6 +161,8 @@ class Session:
         if not hits:
             print("没有检索到相关依据。")
             return
+        self._last_query = query
+        self._last_hits = hits
         print_hits(hits)
 
     def cmd_ask(self, args: list[str]) -> None:
@@ -194,6 +203,9 @@ class Session:
 
     def cmd_docs(self, args: list[str]) -> None:
         docs = self.runtime.index.list_docs()
+        if args:
+            self._show_doc(docs, args[0])
+            return
         if not docs:
             print("no documents")
             return
@@ -203,6 +215,59 @@ class Session:
                 f"{doc['source']:40} {doc['chunks']:6} {doc['pages']:6}"
                 f"  {doc['doc_id']}"
             )
+
+    def _show_doc(self, docs: list[dict], doc_id: str) -> None:
+        for doc in docs:
+            if doc["doc_id"] == doc_id:
+                print(f"doc_id: {doc['doc_id']}")
+                print(f"source: {doc['source']}")
+                print(f"chunks: {doc['chunks']}")
+                print(f"pages:  {doc['pages']}")
+                return
+        print(f"未找到文档: {doc_id}", file=sys.stderr)
+
+    def cmd_last(self, args: list[str]) -> None:
+        if not self._last_hits:
+            print("还没有检索过，先 /search 或 /ask。", file=sys.stderr)
+            return
+        if self._last_query:
+            print(f"上次查询：{self._last_query}")
+        print_hits(self._last_hits)
+
+    def cmd_history(self, args: list[str]) -> None:
+        if readline is None:
+            print("当前环境不支持 readline 历史。", file=sys.stderr)
+            return
+        length = readline.get_current_history_length()
+        if length <= 0:
+            print("没有历史。")
+            return
+        for index in range(1, length + 1):
+            print(f"{index:4}  {readline.get_history_item(index)}")
+
+    def cmd_open(self, args: list[str]) -> None:
+        if not args or not args[0].isdigit():
+            print("用法: /open <n>（n 为 /last 里的序号）", file=sys.stderr)
+            return
+        hits = self._last_hits
+        if not hits:
+            print("还没有检索过，先 /search 或 /ask。", file=sys.stderr)
+            return
+        index = int(args[0])
+        if not (1 <= index <= len(hits)):
+            print(f"序号超出范围：1~{len(hits)}", file=sys.stderr)
+            return
+        hit = hits[index - 1]
+        print(f"source:       {hit.get('source', '')}")
+        print(f"page:         {hit.get('page', 0)}")
+        if hit.get("section_path"):
+            print(f"section_path: {hit['section_path']}")
+        if hit.get("content_type"):
+            print(f"content_type: {hit['content_type']}")
+        if hit.get("bbox"):
+            print(f"bbox:         {hit['bbox']}")
+        snippet = (hit.get("text") or "").replace("\n", " ")[:200]
+        print(f"text:         {snippet}")
 
     def cmd_stats(self, args: list[str]) -> None:
         data = {**self.runtime.index.stats(), "backend": self.runtime.backend}
@@ -675,6 +740,8 @@ class Session:
         if not hits:
             print("没有检索到相关依据。")
             return
+        self._last_query = question
+        self._last_hits = hits
         if not settings.chat_provider:
             print_hits(hits)
             print("提示：未配置 chat provider，以上是检索证据。输入 /setup 选择模型并填入 Key。")
@@ -698,7 +765,11 @@ class Session:
                 question, hits, chat, on_token=stream_token
             )
         except RuntimeError as exc:
-            print(f"\n[LLM_ERROR] {exc}", file=sys.stderr)
+            message, hint = classify_error(exc)
+            print(f"\n[LLM_ERROR] {message}", file=sys.stderr)
+            if hint:
+                print(f"建议: {hint}", file=sys.stderr)
+            print("（检索证据已保留，可用 /last 或 /open 查看）")
             return
         print()
         if result["citations"]:

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Callable
 
 from .chunking import ChunkingOptions, chunk_docparse_ir, chunk_document
 from ..contracts import ConnectorConfig, ConnectorIssue
@@ -50,6 +50,7 @@ class IngestService:
         connector_name: str,
         path: str,
         options: dict[str, Any] | None = None,
+        progress: Callable[[int, int, Document], None] | None = None,
     ) -> IngestReport:
         config = ConnectorConfig(
             name=connector_name,
@@ -63,7 +64,10 @@ class IngestService:
             issues=list(result.issues),
         )
 
-        for document in result.documents:
+        total = len(result.documents)
+        for index, document in enumerate(result.documents, start=1):
+            if progress is not None:
+                progress(index, total, document)
             chunks = self._chunk(document)
             if not chunks:
                 report.issues.append(

@@ -8,6 +8,7 @@ import sys
 
 from ...config import Settings
 from ...qa.llm import answer_with_evidence, build_chat_model
+from ..errors import classify_error
 from ..render import print_hits
 from ..runtime import build_runtime
 
@@ -75,7 +76,12 @@ def cmd_ask(args: argparse.Namespace) -> int:
         print(f"[CONFIG_ERROR] {exc}", file=sys.stderr)
         return 2
     except RuntimeError as exc:
-        print(f"\n[LLM_ERROR] {exc}", file=sys.stderr)
+        message, hint = classify_error(exc)
+        print(f"\n[LLM_ERROR] {message}", file=sys.stderr)
+        if hint:
+            print(f"建议: {hint}", file=sys.stderr)
+        print("\n（检索证据已保留，可用于人工判断）")
+        print_hits(hits)
         return 2
 
     if args.json:
