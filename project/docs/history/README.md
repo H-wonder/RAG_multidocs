@@ -1,0 +1,32 @@
+# 历史文档索引
+
+以下为历史过程文档的脱敏摘要，不是B版最新验收。当前接口见[Core API](../RAG_CORE_API.md)，用户最终选择与真实验收见[最终报告](../testing/FINAL_ACCEPTANCE.md)。
+
+历史全文未经公开授权，保存在本地被忽略的 `history/local/`，并有整理前文档备份；不进入建议提交或课程公开样例。原始A/B冻结快照不修改。删除旧位置的Git记录仅表示文档迁移，未删除用户数据。
+
+| 原位置 | 公开历史摘要 |
+|---|---|
+| `project/docs/RAG_P0_IMPLEMENTATION_REPORT.md` | [RAG_P0_IMPLEMENTATION_REPORT.md](RAG_P0_IMPLEMENTATION_REPORT.md) |
+| `project/docs/RAG_CHAT_TOKEN_BUDGET.md` | [RAG_CHAT_TOKEN_BUDGET.md](RAG_CHAT_TOKEN_BUDGET.md) |
+| `project/docs/RAG_P1_NATIVE_PDF_BBOX_FIX.md` | [RAG_P1_NATIVE_PDF_BBOX_FIX.md](RAG_P1_NATIVE_PDF_BBOX_FIX.md) |
+| `project/docs/A_PLUS_PROGRESS.md` | [A_PLUS_PROGRESS.md](A_PLUS_PROGRESS.md) |
+| `project/docs/RAG_P1_PLAN.md` | [RAG_P1_PLAN.md](RAG_P1_PLAN.md) |
+| `project/docs/EXPANSION_PLAN.md` | [EXPANSION_PLAN.md](EXPANSION_PLAN.md) |
+| `project/docs/ROADMAP.md` | [ROADMAP.md](ROADMAP.md) |
+| `project/docs/RAG_EVALUATION.md` | [RAG_EVALUATION.md](RAG_EVALUATION.md) |
+| `project/docs/RAG_PERSONAL_ACCEPTANCE.md` | [RAG_PERSONAL_ACCEPTANCE.md](RAG_PERSONAL_ACCEPTANCE.md) |
+| `project/docs/RAG_P0_SUPPLEMENT_REPORT.md` | [RAG_P0_SUPPLEMENT_REPORT.md](RAG_P0_SUPPLEMENT_REPORT.md) |
+| `project/docs/RAG_SERVICE_HANDOFF.md` | [RAG_SERVICE_HANDOFF.md](RAG_SERVICE_HANDOFF.md) |
+| `project/docs/RAG_P1_PROGRESS.md` | [RAG_P1_PROGRESS.md](RAG_P1_PROGRESS.md) |
+| `project/docs/RAG_P1_IMPLEMENTATION_REPORT.md` | [RAG_P1_IMPLEMENTATION_REPORT.md](RAG_P1_IMPLEMENTATION_REPORT.md) |
+| `project/docs/RAG_FINAL_DELIVERY.md` | [RAG_FINAL_DELIVERY.md](RAG_FINAL_DELIVERY.md) |
+| `project/docs/RAG_RESOURCE_REUSE_REPORT.md` | [RAG_RESOURCE_REUSE_REPORT.md](RAG_RESOURCE_REUSE_REPORT.md) |
+| `project/docs/RAG_P1_FINAL_FIX_REPORT.md` | [RAG_P1_FINAL_FIX_REPORT.md](RAG_P1_FINAL_FIX_REPORT.md) |
+| `project/docs/RAG_P1_USER_QA_FIX.md` | [RAG_P1_USER_QA_FIX.md](RAG_P1_USER_QA_FIX.md) |
+| `RAG_BASELINE_REUSE.md` | [RAG_BASELINE_REUSE.md](RAG_BASELINE_REUSE.md) |
+| `RAG_FINAL_CLOSEOUT.md` | [RAG_FINAL_CLOSEOUT.md](RAG_FINAL_CLOSEOUT.md) |
+| `RAG_PURE_MILVUS_ACCEPTANCE.md` | [RAG_PURE_MILVUS_ACCEPTANCE.md](RAG_PURE_MILVUS_ACCEPTANCE.md) |
+| `RAG_EXECUTION_CHECKPOINT.md` | [RAG_EXECUTION_CHECKPOINT.md](RAG_EXECUTION_CHECKPOINT.md) |
+| `EXPANSION_PLAN.md` | [ROOT_EXPANSION_PLAN.md](ROOT_EXPANSION_PLAN.md) |
+| `docs/RAG_DESIGN_REVIEW.md` | [RAG_DESIGN_REVIEW.md](RAG_DESIGN_REVIEW.md) |
+| `docs/项目与对话整合记录.md` | [项目与对话整合记录.md](项目与对话整合记录.md) |

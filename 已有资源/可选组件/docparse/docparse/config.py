@@ -19,8 +19,8 @@ MAX_PIXELS = 16_777_216
 # ── prompts (verbatim from the official pipeline) ────────────────────────────
 PROMPTS = {
     "document": (
-        "Extract all information from the main body of the document image and represent it "
-        "in markdown format, ignoring headers and footers. Tables should be expressed in OTSL "
+        "Extract all visible text from the entire document image, including titles, headers "
+        "and footers, and represent it in markdown format. Do not omit marginal text. Tables should be expressed in OTSL "
         "format, formulas in the document should be represented using LATEX format, and the "
         "parsing should be organized according to the reading order."
     ),
@@ -68,6 +68,9 @@ class ParseOptions:
     outdir: Path | None = None
     verbose: bool = False
     kie_fields: list[str] | None = None
+    # Per-child opt-in. Healthy native text is preserved; only real embedded
+    # image rectangles are cropped for supplementary OCR. No CLI/UI change.
+    ocr_hybrid_images: bool = field(default_factory=lambda: os.getenv("DOCPARSE_HYBRID_OCR", "0") == "1")
 
 
 # Layout label → task bucket (same mapping as the upstream two-stage pipeline).

@@ -148,13 +148,20 @@ class Parser:
                     page.warnings.append(quality.warning(
                         "native_text", "info",
                         f"Used embedded text layer ({probe.chars} chars)."))
+                    if probe.kind == "hybrid":
+                        if self.opts.ocr_hybrid_images:
+                            self._supplement_images(fitz_page, page)
+                        else:
+                            page.warnings.append(quality.warning(
+                                "hybrid_images_not_ocr", "medium",
+                                "Native text retained; embedded image text not OCRed. Enable DOCPARSE_HYBRID_OCR per request."))
                 elif probe.kind == "blank":
                     page.mode = "blank"
                     page.warnings.append(quality.warning(
                         "blank_page", "info", "No text and no image content."))
                 else:
-                    page_image = pdfio.render_page(fitz_page, self.opts.dpi)
                     try:
+                        page_image = pdfio.render_page(fitz_page, self.opts.dpi)
                         blocks, mode, warns, latency, usage = self._ocr(page_image, index + 1)
                     except CancelledError:
                         raise
@@ -191,6 +198,59 @@ class Parser:
                             "warnings": sum(1 for w in page.warnings
                                             if w.get("severity") in {"high", "medium"})})
         return doc
+
+    def _supplement_images(self, fitz_page, page):
+        """Reuse OCR on measured image regions, never re-OCR native text."""
+        figures = [b for b in page.blocks if b.type == "figure" and b.meta.get("image")]
+        seen = set()
+        if len(figures) > 8:
+            page.warnings.append(quality.warning("hybrid_image_limit", "high", "Only first eight image regions processed."))
+        for figure in figures[:8]:
+            key = tuple(figure.bbox)
+            if key in seen:
+                continue
+            seen.add(key)
+            self._check_cancel()
+            try:
+                x0,y0,x1,y1 = figure.bbox
+                bounds = fitz_page.rect
+                rect = fitz.Rect(x0*bounds.width/1000, y0*bounds.height/1000,
+                                 x1*bounds.width/1000, y1*bounds.height/1000)
+                pix = fitz_page.get_pixmap(clip=rect, dpi=self.opts.dpi, alpha=False)
+                from PIL import Image
+                image = Image.frombytes("RGB", (pix.width,pix.height), pix.samples)
+                blocks, mode, warns, latency, usage = self._ocr(image, page.number)
+                if not any(b.content.strip() for b in blocks):
+                    raise ValueError("No image OCR text")
+                for block in blocks:
+                    if block.type == "page_markdown":
+                        continue
+                    block.id = f"p{page.number}b{len(page.blocks)}"
+                    block.reading_order = len(page.blocks)
+                    block.meta.update({"ocr_mode": mode, "origin": "ocr_result", "source_image_bbox": figure.bbox})
+                    if mode == "page":
+                        block.type = "page_text"
+                        block.bbox = list(figure.bbox)
+                        block.meta["bbox_scope"] = "image_region_not_word_localization"
+                    elif block.bbox:
+                        a,b,c,d = block.bbox
+                        block.bbox = [x0+a*(x1-x0)/1000,y0+b*(y1-y0)/1000,
+                                      x0+c*(x1-x0)/1000,y0+d*(y1-y0)/1000]
+                    page.blocks.append(block)
+                page.warnings.extend(warns)
+                page.latency_ms += latency
+                for key,value in usage.items():
+                    if isinstance(value,int):
+                        page.usage[key] = page.usage.get(key,0)+value
+                page.warnings.append(quality.warning("hybrid_image_ocr", "info", "OCR applied only to the measured embedded image region."))
+            except CancelledError:
+                raise
+            # Native rendering, Pillow and optional OCR/layout backends do not
+            # share one exception hierarchy. This is the per-image isolation
+            # boundary: cancellation is re-raised above, all other failures are
+            # surfaced rather than erasing other successful image/page output.
+            except Exception as exc:  # noqa: BLE001
+                page.warnings.append(quality.warning("hybrid_image_failed", "high", type(exc).__name__))
 
     # ── key information extraction ──────────────────────────────────────────
     def _kie(self, image, page_no: int, page_text: str):
@@ -311,11 +371,13 @@ class Parser:
             qa["warnings"].append(coverage)
             qa["score"] = max(0.0, qa["score"] - 0.4)
 
+        qa["warnings"].append(quality.warning("ocr_no_local_bbox", "info", "Whole-page OCR has no localized text box."))
         blocks = [Block(id=f"p{page_no}b0", page=page_no, type="page",
-                        bbox=[0, 0, 1000, 1000], reading_order=0,
+                        bbox=[], reading_order=0,
                         content=text, source="vlm_page",
                         confidence=qa["score"], warnings=qa["warnings"],
-                        meta={"finish_reason": result.get("finish_reason")})]
+                        meta={"finish_reason": result.get("finish_reason"), "bbox_scope": "unavailable",
+                              "raw_ocr_text": result["text"], "prepared_image_size": list(imageops.fit(image).size)})]
         return blocks, qa["warnings"], result.get("usage", {})
 
     def _ocr_regions(self, image, page_no: int):

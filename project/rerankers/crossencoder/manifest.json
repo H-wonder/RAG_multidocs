@@ -1,0 +1,1 @@
+{"name":"crossencoder","kind":"reranker","version":"1.0.0","contract_version":"1","entry":"adapter:rank","enabled":true,"requires":["sentence-transformers>=4.0"],"config":{"model":"BAAI/bge-reranker-base","local_files_only":true}}

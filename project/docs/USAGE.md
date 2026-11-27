@@ -1,246 +1,89 @@
-# 使用说明
+# B版使用说明
 
-面向第一次使用本项目的开发者：从启动服务、配置模型，到导入资料、检索和问答。
-环境搭建的完整步骤见 [../../已有资源/文档/07-环境搭建与依赖.md](../../已有资源/文档/07-环境搭建与依赖.md)，
-架构与设计见 [DESIGN.md](DESIGN.md)，后续任务见 [ROADMAP.md](ROADMAP.md)。
+安装与整体架构见[仓库README](../../README.md)。以下命令均从仓库根目录执行；激活已有rag环境，显式PYTHONPATH避免editable安装指向其他worktree。
 
-## 1. 启动
+## 配置与环境
 
-```bash
-conda activate rag
-cd project
+`Settings.load(path=None)`读取JSON，再由已实现的环境变量覆盖；配置目录决定Connector相对路径及来源基准。模板位于 `project/config.example.json`，首次复制为本地 `project/config.json`。保留既有配置及集合时不要复制覆盖。
 
-# 安装（首次）
-pip install -e ".[dev,milvus]"
-cp config.example.json config.json
+| 字段或环境变量 | 作用 |
+|---|---|
+| index_backend / RAG_INDEX_BACKEND | milvus或keyword；正常Milvus路径无SQLite Catalog |
+| fallback_to_keyword | 仅CLI构建Runtime时允许Milvus失败告警回退；create_core直接调用不回退 |
+| milvus_uri/db/collection / MILVUS_URI/DB/COLLECTION | 实际知识库地址和集合；命令/Trace不能替代确认此值 |
+| embed_backend/model/dim/base_url / EMBED_* | 现有Embedding Provider，维度必须与集合一致 |
+| chat_provider/model/base_url / CHAT_* | 对话Provider/模型/地址；空Provider为只检索 |
+| chat_context_tokens / CHAT_CONTEXT_TOKENS | 0采用现有Provider自动窗口，显式值可覆盖 |
+| chat_max_tokens / CHAT_MAX_TOKENS | 0采用现有自动输出预算，具体预算看Trace |
+| rag_policy / RAG_POLICY | stable、lightweight、quality、experimental |
+| connectors_dir / RAG_CONNECTORS_DIR | 插件目录；enabled_connectors是允许列表 |
+| docparse_repo/python/mode/timeout_s | 独立解析进程；对应DOCPARSE_*环境变量 |
+| credentials_file / RAG_CREDENTIALS | 本地凭据，0600，不进入Git |
 
-# Milvus（混合检索依赖；没有它时会回退关键词索引）
-docker start milvus-standalone
-curl -s http://localhost:9091/healthz
-```
+环境变量名以 `config.py` 为准，不任意增加变量。API密钥从相应Provider环境变量或凭据文件加载；环境优先。启动现有服务：`docker start milvus-standalone`；Ollama按现有服务启动方式运行。新部署和模型准备见原[环境资源](../../已有资源/文档/07-环境搭建与依赖.md)。
 
-PDF/扫描件由 `connector_pdf` 独立插件处理，需要额外的 docparse 环境并启动 Ollama；
-docparse CLI 启动前会检查 Ollama 可达，原生 PDF/DOCX 也需服务在跑（但不会实际调用 OCR）。
-不处理 PDF 时可以先跳过。Markdown 和 HTML 插件不需要额外服务。
-只用关键词索引的离线模式：
-
-```bash
-RAG_INDEX_BACKEND=keyword rag-cli search "关键词"
-```
-
-## 2. 两种使用方式
-
-### 交互式（推荐日常使用）
+## CLI与REPL
 
 ```bash
-rag-cli
+PYTHONPATH=project/src python -m rag_multidocs --config project/config.json --help
+PYTHONPATH=project/src python -m rag_multidocs --config project/config.json repl
 ```
 
 ```text
-RAG Multidocs CLI
-config=config.json  index=milvus  chat=未配置  credentials=.rag/credentials.json
-直接输入问题开始；/help 查看命令，输入 exit 或 Ctrl-D 退出。
-
-rag> 检索器如何训练
-rag> /search 表格
-rag> /exit
+/ingest auto project/samples/notes.txt project/samples/markdown
+/search 检索器
+/ask 文档描述了哪些检索步骤？
+/trace
+/policy
+/policy quality
+/config
+/stats
+/docs
+/connectors
+/models
+/model chat ollama gemma3:4b
+/exit
 ```
 
-- 直接输入文字：检索 + 生成答案（配置了 chat 时），答案流式输出并带 `[n]` 引用；
-- 以 `/` 开头的是命令；
-- 常见命令可以省略 `/`，例如 `setup`、`help`、`exit`；
-- `exit` / `quit` / `q` / `/exit` / Ctrl-D 都可以退出。
-
-### 单条命令（脚本/CI）
+`/model`会写本地配置；只改对话模型无需重建索引。更改Embedding模型/维度会影响向量兼容，先选择匹配集合，不能拿既有库尝试不兼容参数。
 
 ```bash
-rag-cli ingest --source txt --path samples/notes.txt
-rag-cli search "检索器如何训练"
-rag-cli ask "检索器如何训练" --stream
-rag-cli -p "检索器如何训练"          # 一次性问答
+PYTHONPATH=project/src python -m rag_multidocs --config project/config.json ingest --source auto --path project/samples/notes.txt project/samples/markdown --json
+PYTHONPATH=project/src python -m rag_multidocs --config project/config.json search '切块' --top-k 3 --json
+PYTHONPATH=project/src python -m rag_multidocs --config project/config.json ask '文档如何切块？' --policy quality --json --trace
+PYTHONPATH=project/src python -m rag_multidocs --config project/config.json docs list
+PYTHONPATH=project/src python -m rag_multidocs --config project/config.json connectors list
 ```
 
-## 3. 第一次配置模型
+`--doc-id`可在search/ask重复传入，用于明确文档范围；同名文件存在歧义时使用准确路径或doc_id。普通自然语言不应自动硬限制到主题相似文件。doc_ids不是完整权限系统，服务层仍须在检索前设置数据隔离；敏感资料不得因切换Provider而默认外发。
+
+## 模型与插件设置
 
 ```bash
-rag-cli setup
+PYTHONPATH=project/src python -m rag_multidocs --config project/config.json keys set --provider dashscope
+PYTHONPATH=project/src python -m rag_multidocs --config project/config.json models use --kind chat --provider dashscope --model deepseek-v4.1-flash-1017
+PYTHONPATH=project/src python -m rag_multidocs --config project/config.json connectors disable connector.jsonl
+PYTHONPATH=project/src python -m rag_multidocs --config project/config.json connectors enable connector.jsonl
 ```
 
-向导分两步：
+`keys set`隐藏输入；不在命令行提供真实密钥。插件启停只影响新导入，不删除已有索引。复制新插件到目录后，显式允许其名称并重启；Reranker通过策略选择，未提供通用Reranker热管理CLI。对话模型是否可用由实际服务决定，本轮不下载模型。
 
-1. **Chat 模型**：负责生成答案，可选。选 `0` 或直接回车可关闭，只做检索；
-2. **Embedding 模型**：负责入库和查询时的向量化，默认
-   `local / BAAI/bge-small-zh-v1.5 / dim=512`。
+## 更新与结果
 
-需要 API Key 的 provider（DashScope、OpenAI、DeepSeek）会在选择后提示隐藏输入；
-留空表示稍后设置。配置结束后会打印当前选择，例如：
+相同来源再次导入沿用稳定身份，内容/配置签名相同可报告unchanged；变更时写新Chunk并清除该文档旧余块，普通写异常尝试恢复旧数据，不是完整数据库事务。删除文档只有Core公开 `delete(doc_id)`；当前CLI没有对应通用删除子命令，不编造命令。更新时保留来源基准/命名空间，不以删除知识库代替更新。
 
-```text
-当前选择：chat=deepseek/deepseek-chat  embedding=local/BAAI/bge-small-zh-v1.5 dim=512
-```
+`answered`表示路径返回答案，不是完整事实认证。`partial`仍可能包含有价值内容；`insufficient_evidence`与`generation_failed/retrieval_failed`分开。来源为本次真正上下文片段，编号可不连续；`page=0`或空bbox表示未有可靠位置，不能补造。`/trace`不应公开包含私人材料的完整Prompt/上下文。
 
-也可以分步配置：
+## 常见故障
 
-```bash
-rag-cli models list
-rag-cli models use --kind chat --provider deepseek --model deepseek-chat
-rag-cli models use --kind embedding --provider dashscope --model text-embedding-v4 --dim 1024
-rag-cli keys set --provider deepseek
+| 现象 | 核对方式 |
+|---|---|
+| 意外keyword/空结果 | 看backend及warning，核对Milvus服务和配置，两个后端不共享数据 |
+| PDF或Office解析不可用 | 检查docparse_repo、docparse_python与解析环境依赖；不能把解析失败说成资料不足 |
+| 扫描件OCR失败 | 检查现有Ollama OCR模型、服务地址和解析模式；不要切远程处理私人资料 |
+| CrossEncoder回退 | 看RERANKER警告及执行mode，核对已有缓存/依赖；不代表CE已实际运行 |
+| 连接错误/输出为空 | 查看Provider、模型、警告和token预算；程序不靠无限重试保证成功 |
+| 长文漏召回/跨文档漏引用 | 属于已知局限；可用准确来源范围辅助，不能把answered当完整正确 |
+| 切换目录后出现新ID | 核对source_namespace及配置根；不要全库重入或清库 |
 
-# 动态查询 provider 当前可用的模型，避免手写模型名过时
-rag-cli models discover --provider ollama --kind chat
-rag-cli models discover --provider deepseek --kind chat
-```
-
-在 REPL 中直接输入 `/model`（不带参数）会打开交互菜单：
-先选 chat/embedding，再选 provider，然后从动态模型列表选择或手动输入模型名；
-embedding 还会提示维度。`/model` 带参数时仍然直接设置。
-
-## 4. chat 和 embedding 的区别
-
-| 类型 | 作用 | 何时使用 | 换模型的影响 |
-| --- | --- | --- | --- |
-| chat | 把检索到的证据交给 LLM 生成答案 | `ask`、交互式提问 | 下次提问生效，无需重建索引 |
-| embedding | 入库切块向量化 + 查询向量化 | `ingest`、`search`、`ask` | 维度可能变化，必须新建 Milvus 集合并重新导入 |
-
-当前选择的 embedding 可以用 `/config` 或 `rag-cli models list` 查看（带 `*`）。
-
-**换 embedding 的注意事项**：不同 provider/模型/维度的向量不能混用。
-切换后请修改 `config.json` 的 `milvus_collection`（例如 `rag_chunks_dashscope`），
-再重新 `rag-cli ingest`；旧集合可以保留，切回去时改回集合名即可。
-
-自动按模型/维度命名集合仍在路线图中（P1-3），当前需要手动改集合名。
-
-## 5. 导入与检索
-
-```bash
-# TXT
-rag-cli ingest --source txt --path samples/notes.txt
-
-# Markdown 目录（独立 Connector）
-rag-cli ingest --source connector.markdown --path samples/markdown
-
-# HTML 目录（独立 Connector）
-rag-cli ingest --source connector.html --path samples/html
-
-# PDF（独立 Connector，需要 docparse 环境）
-rag-cli ingest --source pdf --path /path/to/file.pdf
-
-# 检索
-rag-cli search "表格" --top-k 3
-
-# 文档、连接器、索引状态
-rag-cli docs list
-rag-cli connectors list
-rag-cli stats
-```
-
-交互模式下的等价命令：
-
-```text
-rag> /ingest txt samples/notes.txt
-rag> /search 表格
-rag> /docs
-rag> /stats
-rag> /connectors
-```
-
-## 6. 本地 API Key 管理
-
-API Key 不写入 `config.json`。默认保存在项目内的
-`.rag/credentials.json`：
-
-- 文件权限 `0600`，目录 `0700`；
-- `.rag/` 已在 `.gitignore` 中，不会被提交；
-- 文件内是**明文密钥**，只建议用于个人/课程环境；
-- 已设置的 shell 环境变量优先级更高。
-
-```bash
-rag-cli setup                         # 向导里隐藏输入
-rag-cli keys set --provider deepseek  # 单独保存/修改
-rag-cli keys list                     # 脱敏显示，标注来源 env/file
-rag-cli keys unset --provider deepseek
-rag-cli keys path                     # 凭证文件位置
-```
-
-`rag-cli` 启动时会把文件里的 Key 加载到**当前进程**的环境变量，不会修改父 shell。
-需要让当前 shell 也生效时：
-
-```bash
-eval "$(rag-cli keys export)"   # 会输出明文，只在确有必要时使用
-```
-
-自定义凭证文件位置：
-
-```bash
-export RAG_CREDENTIALS=/path/to/credentials.json
-# 或在 config.json 中设置 "credentials_file"
-```
-
-支持的环境变量：`DEEPSEEK_API_KEY`、`DASHSCOPE_API_KEY`、`OPENAI_API_KEY`；
-`local`/`hashing`/Ollama 不需要 Key。
-
-## 7. 交互命令速查
-
-| 命令 | 作用 |
-| --- | --- |
-| 直接输入问题 | 检索 + 生成答案 |
-| `/search <问题>` | 只检索，不调用 LLM |
-| `/ask <问题>` | 检索并生成答案 |
-| `/ingest <source> <path> [--mode auto\|page\|region]` | 导入文档 |
-| `/docs` | 文档列表 |
-| `/stats` | 索引统计 |
-| `/connectors` | 连接器及启用状态 |
-| `/models` | 所有 provider、当前选择、Key 状态 |
-| `/model` | 打开交互菜单：类型 → provider → 模型（embedding 再问维度） |
-| `/model <chat\|embedding> <provider> [模型名] [--dim N]` | 直接选择模型；chat 传 `none` 关闭问答 |
-| `/keys [list\|set <provider>\|unset <provider>\|path]` | 管理本地 Key |
-| `/setup` | 两步配置 chat/embedding |
-| `/config` | 当前配置（不显示 Key） |
-| `/clear` | 清屏 |
-| `/help` | 帮助 |
-| `/exit`、`/quit`、`/q` | 退出 |
-
-## 8. 常见问题
-
-**第一次提问停顿几秒**
-首次会加载 Milvus 索引和本地嵌入模型，终端会提示
-`正在加载索引与嵌入模型（首次可能需要几秒）...`；同一会话内会复用。
-
-**方向键显示 `^[[A`**
-说明终端 `TERM=dumb`。REPL 会在 TTY 下自动切换到 `xterm-256color`；
-如果仍不正常，启动前执行 `export TERM=xterm-256color`。
-
-**复制/粘贴不工作**
-REPL 本身支持粘贴，注意终端的快捷键：`Ctrl+C` 是中断当前输入，不是复制；
-Linux/VSCode 终端通常用 `Ctrl+Shift+C` / `Ctrl+Shift+V`，macOS 用 `Cmd+C` / `Cmd+V`。
-API Key 输入使用 `getpass`，粘贴后不会回显，这是正常的，粘贴完直接回车。
-如果仍然异常，先确认 `TERM` 不是 `dumb`，并升级终端/readline。
-
-**提示未配置 chat provider**
-说明当前只配置了检索。运行 `/setup` 选择 chat 模型并填 Key，
-或继续只用 `/search`；也可以 `rag-cli models use --kind chat --provider none`
-显式关闭生成式问答。
-
-**Key 删除了但 `keys list` 仍显示**
-如果当前 shell 设置了同名环境变量，环境变量优先。`unset` 只删除本地文件中的 Key；
-用 `unset DEEPSEEK_API_KEY` 或新开一个没有该变量的 shell。
-
-**换 embedding 后检索报维度错误**
-向量维度与 Milvus 集合不一致。改 `milvus_collection` 为新集合名并重新 `ingest`。
-
-**Milvus 不可用**
-会打印 `[WARN]` 并自动回退到本地 BM25 关键词索引；也可以用
-`RAG_INDEX_BACKEND=keyword` 强制离线模式。
-
-## 9. 验证
-
-```bash
-cd project
-pytest -q -m "not integration"          # 离线单元测试
-ruff check src tests connectors
-MILVUS_URI=http://localhost:19530 pytest -q -m integration
-```
-
-当前基线：离线单元测试 65 passed，Milvus 集成测试 1 passed（需要可用的 Milvus 服务）。
-`samples/campus-corpus/` 含 TXT/Markdown/HTML/PDF/PNG/DOCX 多格式样例。
+详细公开签名及错误边界见[Core接口](RAG_CORE_API.md)。

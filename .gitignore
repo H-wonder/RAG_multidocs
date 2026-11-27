@@ -31,3 +31,35 @@ project/.rag/
 
 # Archives
 *.zip
+
+# Local root-level CLI/REPL configuration and personal inputs
+/config.json
+/config.json.bak
+/.rag/
+/temp/
+
+# Local configuration backups
+/config.json.current_backup
+/config.json.deepseek-backup
+/config.json.deepseek_backup
+
+# Final delivery local-only files (keep originals; never publish)
+/project/docs/history/local/
+/config.*.json
+!/config.example.json
+**/credentials.json
+.conda/
+envs/
+.cache/
+models/
+model_cache/
+*.gguf
+*.safetensors
+*.ckpt
+*.pt
+*.pth
+/dist/
+/build/
+/project/dist/
+/project/build/
+/checkpoint-*/

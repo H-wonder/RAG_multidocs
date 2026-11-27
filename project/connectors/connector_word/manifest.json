@@ -1,0 +1,23 @@
+{
+  "name": "connector.word",
+  "kind": "connector",
+  "version": "1.0.0",
+  "contract_version": "1",
+  "entry": "adapter:load",
+  "enabled": true,
+  "requires": [],
+  "parser_dependencies": [
+    "python-docx>=1.0"
+  ],
+  "description": "Independent docx parser in optional document environment",
+  "input_schema": {
+    "type": "object",
+    "required": [
+      "path"
+    ]
+  },
+  "file_extensions": [
+    ".docx"
+  ],
+  "auto_priority": 0
+}

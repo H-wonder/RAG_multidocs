@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from ..index import KeywordIndex
+from .controller import RetrievalController
 
 
 class SearchService:
@@ -16,8 +17,9 @@ class SearchService:
         query: str,
         top_k: int = 5,
         doc_ids: list[str] | None = None,
+        filters: dict | None = None,
     ) -> list[dict[str, Any]]:
-        return self.index.search(query, top_k=top_k, doc_ids=doc_ids)
+        return RetrievalController.search_hits(self.index, query, top_k=top_k, doc_ids=doc_ids, filters=filters)
 
 
 __all__ = ["SearchService"]

@@ -17,7 +17,9 @@
 
 from __future__ import annotations
 
-from typing import Any, Callable, Iterable
+import json
+from collections.abc import Callable, Iterable
+from typing import Any
 
 try:
     from pymilvus import (
@@ -85,10 +87,10 @@ class MilvusHybridIndex:
 
     # ---------------------------------------------------------------- 连接
 
-    def _admin_client(self) -> "MilvusClient":
+    def _admin_client(self) -> MilvusClient:
         return MilvusClient(uri=self.uri)
 
-    def client(self) -> "MilvusClient":
+    def client(self) -> MilvusClient:
         if self._client is None:
             self._client = MilvusClient(uri=self.uri, db_name=self.db_name)
         return self._client
@@ -110,6 +112,10 @@ class MilvusHybridIndex:
         client = self.client()
         name = self.collection
         if client.has_collection(name):
+            fields = client.describe_collection(name)["fields"]
+            dense = next((field for field in fields if field["name"] == "dense"), None)
+            if dense is None or int(dense["params"]["dim"]) != int(self.embedder.dim):
+                raise ValueError("已有集合的向量维度与模型不兼容，请新建集合")
             return name
 
         dim = int(self.embedder.dim)
@@ -192,6 +198,7 @@ class MilvusHybridIndex:
         source: str = "",
         sha256: str = "",
         batch_size: int = 256,
+        replace_document: bool = True,
     ) -> dict[str, Any]:
         """按 doc_id 先删后插，保证重跑幂等。"""
         rows_in = [self._as_dict(chunk) for chunk in chunks]
@@ -212,9 +219,7 @@ class MilvusHybridIndex:
         ]
         vectors = self.embedder.embed(embed_inputs, query=False)
         if len(vectors) != len(rows_in):
-            raise RuntimeError(
-                f"嵌入数量不匹配: {len(vectors)} != {len(rows_in)}"
-            )
+            raise RuntimeError(f"嵌入数量不匹配: {len(vectors)} != {len(rows_in)}")
 
         rows = [
             {
@@ -234,7 +239,16 @@ class MilvusHybridIndex:
             for row, vector in zip(rows_in, vectors)
         ]
 
-        client.delete(collection_name=name, filter=f'doc_id == "{doc_id}"')
+        if batch_size < 1:
+            raise ValueError("batch_size 必须大于0")
+        if any(len(row["text"].encode("utf-8")) > 8000 for row in rows):
+            raise ValueError("切块超过 Milvus text 的8000字节限制")
+        if any(len(vector) != self.embedder.dim for vector in vectors):
+            raise ValueError("向量维度错误")
+        expr = f"doc_id == {json.dumps(doc_id)}"
+        if not replace_document:
+            expr += f" and version == {int(version)}"
+        client.delete(collection_name=name, filter=expr)
         for start in range(0, len(rows), batch_size):
             client.insert(name, rows[start : start + batch_size])
         client.flush(name)
@@ -249,7 +263,9 @@ class MilvusHybridIndex:
         client = self.client()
         if not client.has_collection(self.collection):
             return {"doc_id": doc_id, "deleted": False, "reason": "collection 不存在"}
-        client.delete(collection_name=self.collection, filter=f'doc_id == "{doc_id}"')
+        client.delete(
+            collection_name=self.collection, filter=f"doc_id == {json.dumps(doc_id)}"
+        )
         client.flush(self.collection)
         return {"doc_id": doc_id, "deleted": True}
 
@@ -277,7 +293,7 @@ class MilvusHybridIndex:
                 )
             )
             return int(rows[0]["count(*)"]) if rows else 0
-        except Exception:
+        except Exception:  # noqa: BLE001 - 计数失败时返回-1，不能当作零行。
             return -1
 
     def query(
@@ -289,6 +305,7 @@ class MilvusHybridIndex:
         fusion: str = "weighted",
         expand: ExpandFn | None = None,
         rerank: RerankFn | None = None,
+        filter_expr: str | None = None,
     ) -> dict[str, Any]:
         """混合检索：dense(IP) + 服务端 BM25，WeightedRanker 或 RRF 融合。
 
@@ -299,6 +316,8 @@ class MilvusHybridIndex:
         """
         if not question.strip():
             raise ValueError("question 为空")
+        if not 1 <= top_k <= 100 or fusion not in {"weighted", "rrf"}:
+            raise ValueError("top_k需为1~100，fusion需为weighted或rrf")
         client = self.client()
         if not client.has_collection(self.collection):
             raise RuntimeError(f"集合 {self.collection} 不存在，请先入库")
@@ -307,10 +326,10 @@ class MilvusHybridIndex:
         queries = [q for q in (question, expanded) if q]
         limit = max(top_k * 4, 20) if rerank else top_k * 4
 
-        expr = None
+        expr = filter_expr
         if doc_ids:
-            quoted = ", ".join(f'"{doc_id}"' for doc_id in doc_ids)
-            expr = f"doc_id in [{quoted}]"
+            clause = f"doc_id in {json.dumps(doc_ids)}"
+            expr = f"({expr}) and ({clause})" if expr else clause
 
         merged: dict[str, dict[str, Any]] = {}
         for text_query in queries:
@@ -318,7 +337,10 @@ class MilvusHybridIndex:
             dense_req = AnnSearchRequest(
                 data=[query_vector],
                 anns_field="dense",
-                param={"metric_type": self.metric_type, "params": {"ef": 64}},
+                param={
+                    "metric_type": self.metric_type,
+                    "params": {"ef": max(64, limit)},
+                },
                 limit=limit,
                 expr=expr,
             )
@@ -341,6 +363,7 @@ class MilvusHybridIndex:
                 ranker=ranker,
                 limit=limit,
                 output_fields=OUTPUT_FIELDS,
+                consistency_level="Strong",
             )
             for rank, hit in enumerate(results[0] if results else []):
                 hit_id = hit.get("id")
@@ -422,4 +445,4 @@ class MilvusHybridIndex:
         }
 
 
-__all__ = ["MilvusHybridIndex", "OUTPUT_FIELDS"]
+__all__ = ["OUTPUT_FIELDS", "MilvusHybridIndex"]

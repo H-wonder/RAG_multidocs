@@ -14,6 +14,7 @@ from ..model import Document
 
 class TxtConnector:
     name = "txt"
+    file_extensions = (".txt",)
 
     def load(self, config: ConnectorConfig) -> ConnectorResult:
         root = Path(config.path)
@@ -55,7 +56,20 @@ class TxtConnector:
         issues: list[ConnectorIssue] = []
         for path in files:
             try:
-                text = path.read_text(encoding="utf-8", errors="replace")
+                raw = path.read_bytes()
+                encodings = (("utf-32",) if raw.startswith((b"\xff\xfe\x00\x00", b"\x00\x00\xfe\xff"))
+                             else ("utf-16",) if raw.startswith((b"\xff\xfe", b"\xfe\xff"))
+                             else ("utf-8-sig", "gb18030"))
+                text, encoding = None, None
+                for candidate in encodings:
+                    try:
+                        text, encoding = raw.decode(candidate, errors="strict"), candidate
+                        break
+                    except UnicodeDecodeError:
+                        continue
+                if text is None:
+                    issues.append(ConnectorIssue("DECODE_ERROR", "无法按 UTF-8、带 BOM 的 UTF-16/32 或 GB18030 解码", str(path)))
+                    continue
             except OSError as exc:
                 issues.append(
                     ConnectorIssue("READ_ERROR", f"读取失败: {exc}", str(path))
@@ -78,6 +92,7 @@ class TxtConnector:
                     title=path.stem,
                     metadata={
                         "connector": self.name,
+                        "encoding": encoding,
                         "absolute_path": str(path.resolve()),
                     },
                 )

@@ -1,0 +1,1973 @@
+{
+  "description": "60 seen development/regression questions. No independently confirmed held-out split. Legacy30 questions/answers retained, source scope excludes new experimental model scores. All annotation review pending. Literal checks are not Answer Accuracy.",
+  "label_status": "PENDING_HUMAN",
+  "cases": [
+    {
+      "id": "q01",
+      "category": "fact",
+      "split": "dev",
+      "question": "本科生借阅期限是多少天？",
+      "reference_answer": "30天",
+      "answerable": true,
+      "expected_evidence": [
+        {
+          "source": "campus-faq.txt",
+          "page": 0,
+          "contains": "本科生 30 天"
+        }
+      ],
+      "required_subquestions": [
+        "本科生借阅期限是多少天？"
+      ],
+      "annotation_status": "PENDING_HUMAN; existing seen development annotation preserved",
+      "source_allowlist": [
+        "campus-faq.txt",
+        "library-hours.txt",
+        "rag-basics.md",
+        "lab-guide.md",
+        "library-services.html",
+        "course-project-guide.pdf",
+        "course-faq.docx",
+        "scanned-library-notice.png"
+      ],
+      "cohort": "legacy_sources_only"
+    },
+    {
+      "id": "q02",
+      "category": "fact",
+      "split": "dev",
+      "question": "研究生借阅期限是多少天？",
+      "reference_answer": "60天",
+      "answerable": true,
+      "expected_evidence": [
+        {
+          "source": "campus-faq.txt",
+          "page": 0,
+          "contains": "研究生 60 天"
+        }
+      ],
+      "required_subquestions": [
+        "研究生借阅期限是多少天？"
+      ],
+      "annotation_status": "PENDING_HUMAN; existing seen development annotation preserved",
+      "source_allowlist": [
+        "campus-faq.txt",
+        "library-hours.txt",
+        "rag-basics.md",
+        "lab-guide.md",
+        "library-services.html",
+        "course-project-guide.pdf",
+        "course-faq.docx",
+        "scanned-library-notice.png"
+      ],
+      "cohort": "legacy_sources_only"
+    },
+    {
+      "id": "q03",
+      "category": "fact",
+      "split": "dev",
+      "question": "图书可以续借几次？",
+      "reference_answer": "一次",
+      "answerable": true,
+      "expected_evidence": [
+        {
+          "source": "campus-faq.txt",
+          "page": 0,
+          "contains": "可续借一次"
+        }
+      ],
+      "required_subquestions": [
+        "图书可以续借几次？"
+      ],
+      "annotation_status": "PENDING_HUMAN; existing seen development annotation preserved",
+      "source_allowlist": [
+        "campus-faq.txt",
+        "library-hours.txt",
+        "rag-basics.md",
+        "lab-guide.md",
+        "library-services.html",
+        "course-project-guide.pdf",
+        "course-faq.docx",
+        "scanned-library-notice.png"
+      ],
+      "cohort": "legacy_sources_only"
+    },
+    {
+      "id": "q04",
+      "category": "fact",
+      "split": "test",
+      "question": "自助还书机每天可以用多久？",
+      "reference_answer": "24小时",
+      "answerable": true,
+      "expected_evidence": [
+        {
+          "source": "library-hours.txt",
+          "page": 0,
+          "contains": "24 小时"
+        }
+      ],
+      "required_subquestions": [
+        "自助还书机每天可以用多久？"
+      ],
+      "annotation_status": "PENDING_HUMAN; existing seen development annotation preserved",
+      "source_allowlist": [
+        "campus-faq.txt",
+        "library-hours.txt",
+        "rag-basics.md",
+        "lab-guide.md",
+        "library-services.html",
+        "course-project-guide.pdf",
+        "course-faq.docx",
+        "scanned-library-notice.png"
+      ],
+      "cohort": "legacy_sources_only"
+    },
+    {
+      "id": "q05",
+      "category": "fact",
+      "split": "test",
+      "question": "馆际互借通常多久到馆？",
+      "reference_answer": "3个工作日",
+      "answerable": true,
+      "expected_evidence": [
+        {
+          "source": "library-hours.txt",
+          "page": 0,
+          "contains": "3 个工作日"
+        }
+      ],
+      "required_subquestions": [
+        "馆际互借通常多久到馆？"
+      ],
+      "annotation_status": "PENDING_HUMAN; existing seen development annotation preserved",
+      "source_allowlist": [
+        "campus-faq.txt",
+        "library-hours.txt",
+        "rag-basics.md",
+        "lab-guide.md",
+        "library-services.html",
+        "course-project-guide.pdf",
+        "course-faq.docx",
+        "scanned-library-notice.png"
+      ],
+      "cohort": "legacy_sources_only"
+    },
+    {
+      "id": "q06",
+      "category": "fact",
+      "split": "test",
+      "question": "馆际互借在哪里申请？",
+      "reference_answer": "总服务台",
+      "answerable": true,
+      "expected_evidence": [
+        {
+          "source": "library-services.html",
+          "page": 0,
+          "contains": "总服务台"
+        }
+      ],
+      "required_subquestions": [
+        "馆际互借在哪里申请？"
+      ],
+      "annotation_status": "PENDING_HUMAN; existing seen development annotation preserved",
+      "source_allowlist": [
+        "campus-faq.txt",
+        "library-hours.txt",
+        "rag-basics.md",
+        "lab-guide.md",
+        "library-services.html",
+        "course-project-guide.pdf",
+        "course-faq.docx",
+        "scanned-library-notice.png"
+      ],
+      "cohort": "legacy_sources_only"
+    },
+    {
+      "id": "q07",
+      "category": "fact",
+      "split": "test",
+      "question": "馆际互借需要提供哪些信息？",
+      "reference_answer": "书名、ISBN和借阅人学号",
+      "answerable": true,
+      "expected_evidence": [
+        {
+          "source": "library-services.html",
+          "page": 0,
+          "contains": "ISBN"
+        }
+      ],
+      "required_subquestions": [
+        "馆际互借需要提供哪些信息？"
+      ],
+      "annotation_status": "PENDING_HUMAN; existing seen development annotation preserved",
+      "source_allowlist": [
+        "campus-faq.txt",
+        "library-hours.txt",
+        "rag-basics.md",
+        "lab-guide.md",
+        "library-services.html",
+        "course-project-guide.pdf",
+        "course-faq.docx",
+        "scanned-library-notice.png"
+      ],
+      "cohort": "legacy_sources_only"
+    },
+    {
+      "id": "q08",
+      "category": "fact",
+      "split": "test",
+      "question": "最终提交什么格式的文件？",
+      "reference_answer": "一个ZIP",
+      "answerable": true,
+      "expected_evidence": [
+        {
+          "source": "course-project-guide.pdf",
+          "page": 1,
+          "contains": "ZIP"
+        }
+      ],
+      "required_subquestions": [
+        "最终提交什么格式的文件？"
+      ],
+      "annotation_status": "PENDING_HUMAN; existing seen development annotation preserved",
+      "source_allowlist": [
+        "campus-faq.txt",
+        "library-hours.txt",
+        "rag-basics.md",
+        "lab-guide.md",
+        "library-services.html",
+        "course-project-guide.pdf",
+        "course-faq.docx",
+        "scanned-library-notice.png"
+      ],
+      "cohort": "legacy_sources_only"
+    },
+    {
+      "id": "q09",
+      "category": "explain",
+      "split": "dev",
+      "question": "检索器的作用是什么？",
+      "reference_answer": "从外部知识库取回相关段落",
+      "answerable": true,
+      "expected_evidence": [
+        {
+          "source": "rag-basics.md",
+          "page": 0,
+          "contains": "外部知识库"
+        }
+      ],
+      "required_subquestions": [
+        "检索器的作用是什么？"
+      ],
+      "annotation_status": "PENDING_HUMAN; existing seen development annotation preserved",
+      "source_allowlist": [
+        "campus-faq.txt",
+        "library-hours.txt",
+        "rag-basics.md",
+        "lab-guide.md",
+        "library-services.html",
+        "course-project-guide.pdf",
+        "course-faq.docx",
+        "scanned-library-notice.png"
+      ],
+      "cohort": "legacy_sources_only"
+    },
+    {
+      "id": "q10",
+      "category": "explain",
+      "split": "dev",
+      "question": "为什么切块需要保留表格边界？",
+      "reference_answer": "避免硬切把表格行拆断",
+      "answerable": true,
+      "expected_evidence": [
+        {
+          "source": "rag-basics.md",
+          "page": 0,
+          "contains": "一行数据切成两半"
+        }
+      ],
+      "required_subquestions": [
+        "为什么切块需要保留表格边界？"
+      ],
+      "annotation_status": "PENDING_HUMAN; existing seen development annotation preserved",
+      "source_allowlist": [
+        "campus-faq.txt",
+        "library-hours.txt",
+        "rag-basics.md",
+        "lab-guide.md",
+        "library-services.html",
+        "course-project-guide.pdf",
+        "course-faq.docx",
+        "scanned-library-notice.png"
+      ],
+      "cohort": "legacy_sources_only"
+    },
+    {
+      "id": "q11",
+      "category": "explain",
+      "split": "test",
+      "question": "没有证据时应该如何回答？",
+      "reference_answer": "明确拒答，不能编造来源",
+      "answerable": true,
+      "expected_evidence": [
+        {
+          "source": "rag-basics.md",
+          "page": 0,
+          "contains": "没有证据"
+        }
+      ],
+      "required_subquestions": [
+        "没有证据时应该如何回答？"
+      ],
+      "annotation_status": "PENDING_HUMAN; existing seen development annotation preserved",
+      "source_allowlist": [
+        "campus-faq.txt",
+        "library-hours.txt",
+        "rag-basics.md",
+        "lab-guide.md",
+        "library-services.html",
+        "course-project-guide.pdf",
+        "course-faq.docx",
+        "scanned-library-notice.png"
+      ],
+      "cohort": "legacy_sources_only"
+    },
+    {
+      "id": "q12",
+      "category": "explain",
+      "split": "test",
+      "question": "为什么切换embedding模型要新建集合？",
+      "reference_answer": "不能混用不同维度向量",
+      "answerable": true,
+      "expected_evidence": [
+        {
+          "source": "lab-guide.md",
+          "page": 0,
+          "contains": "不能混用不同维度"
+        }
+      ],
+      "required_subquestions": [
+        "为什么切换embedding模型要新建集合？"
+      ],
+      "annotation_status": "PENDING_HUMAN; existing seen development annotation preserved",
+      "source_allowlist": [
+        "campus-faq.txt",
+        "library-hours.txt",
+        "rag-basics.md",
+        "lab-guide.md",
+        "library-services.html",
+        "course-project-guide.pdf",
+        "course-faq.docx",
+        "scanned-library-notice.png"
+      ],
+      "cohort": "legacy_sources_only"
+    },
+    {
+      "id": "q13",
+      "category": "explain",
+      "split": "test",
+      "question": "为什么独立扩展不能依赖核心内部实现？",
+      "reference_answer": "公开契约实现独立接入，无需改核心源码",
+      "answerable": true,
+      "expected_evidence": [
+        {
+          "source": "course-project-guide.pdf",
+          "page": 1,
+          "contains": "核心源码保持不变"
+        }
+      ],
+      "required_subquestions": [
+        "为什么独立扩展不能依赖核心内部实现？"
+      ],
+      "annotation_status": "PENDING_HUMAN; existing seen development annotation preserved",
+      "source_allowlist": [
+        "campus-faq.txt",
+        "library-hours.txt",
+        "rag-basics.md",
+        "lab-guide.md",
+        "library-services.html",
+        "course-project-guide.pdf",
+        "course-faq.docx",
+        "scanned-library-notice.png"
+      ],
+      "cohort": "legacy_sources_only"
+    },
+    {
+      "id": "q14",
+      "category": "numeric",
+      "split": "dev",
+      "question": "逾期费用每天每本是多少元？",
+      "reference_answer": "0.2元",
+      "answerable": true,
+      "expected_evidence": [
+        {
+          "source": "campus-faq.txt",
+          "page": 0,
+          "contains": "0.2 元"
+        }
+      ],
+      "required_subquestions": [
+        "逾期费用每天每本是多少元？"
+      ],
+      "annotation_status": "PENDING_HUMAN; existing seen development annotation preserved",
+      "source_allowlist": [
+        "campus-faq.txt",
+        "library-hours.txt",
+        "rag-basics.md",
+        "lab-guide.md",
+        "library-services.html",
+        "course-project-guide.pdf",
+        "course-faq.docx",
+        "scanned-library-notice.png"
+      ],
+      "cohort": "legacy_sources_only"
+    },
+    {
+      "id": "q15",
+      "category": "numeric",
+      "split": "test",
+      "question": "单本图书逾期费用封顶多少元？",
+      "reference_answer": "20元",
+      "answerable": true,
+      "expected_evidence": [
+        {
+          "source": "campus-faq.txt",
+          "page": 0,
+          "contains": "20 元"
+        }
+      ],
+      "required_subquestions": [
+        "单本图书逾期费用封顶多少元？"
+      ],
+      "annotation_status": "PENDING_HUMAN; existing seen development annotation preserved",
+      "source_allowlist": [
+        "campus-faq.txt",
+        "library-hours.txt",
+        "rag-basics.md",
+        "lab-guide.md",
+        "library-services.html",
+        "course-project-guide.pdf",
+        "course-faq.docx",
+        "scanned-library-notice.png"
+      ],
+      "cohort": "legacy_sources_only"
+    },
+    {
+      "id": "q16",
+      "category": "numeric",
+      "split": "test",
+      "question": "研讨间至少几人、每次最多几小时？",
+      "reference_answer": "至少3人，每次最多2小时",
+      "answerable": true,
+      "expected_evidence": [
+        {
+          "source": "library-services.html",
+          "page": 0,
+          "contains": "至少 3 人"
+        }
+      ],
+      "required_subquestions": [
+        "研讨间至少几人、每次最多几小时？"
+      ],
+      "annotation_status": "PENDING_HUMAN; existing seen development annotation preserved",
+      "source_allowlist": [
+        "campus-faq.txt",
+        "library-hours.txt",
+        "rag-basics.md",
+        "lab-guide.md",
+        "library-services.html",
+        "course-project-guide.pdf",
+        "course-faq.docx",
+        "scanned-library-notice.png"
+      ],
+      "cohort": "legacy_sources_only"
+    },
+    {
+      "id": "q17",
+      "category": "numeric",
+      "split": "test",
+      "question": "遗失图书除了原价还需多少加工费？",
+      "reference_answer": "10元",
+      "answerable": true,
+      "expected_evidence": [
+        {
+          "source": "campus-faq.txt",
+          "page": 0,
+          "contains": "10 元"
+        }
+      ],
+      "required_subquestions": [
+        "遗失图书除了原价还需多少加工费？"
+      ],
+      "annotation_status": "PENDING_HUMAN; existing seen development annotation preserved",
+      "source_allowlist": [
+        "campus-faq.txt",
+        "library-hours.txt",
+        "rag-basics.md",
+        "lab-guide.md",
+        "library-services.html",
+        "course-project-guide.pdf",
+        "course-faq.docx",
+        "scanned-library-notice.png"
+      ],
+      "cohort": "legacy_sources_only"
+    },
+    {
+      "id": "q18",
+      "category": "compare",
+      "split": "dev",
+      "question": "比较本科生和研究生的借阅期限，并结合开放时间说明还书设备可用性。",
+      "reference_answer": "本科生30天、研究生60天；自助还书机24小时可用",
+      "answerable": true,
+      "expected_evidence": [
+        {
+          "source": "campus-faq.txt",
+          "page": 0,
+          "contains": "本科生 30 天"
+        },
+        {
+          "source": "library-hours.txt",
+          "page": 0,
+          "contains": "24 小时"
+        }
+      ],
+      "required_subquestions": [
+        "本科生借阅期限",
+        "研究生借阅期限",
+        "自助还书机"
+      ],
+      "annotation_status": "PENDING_HUMAN; existing seen development annotation preserved",
+      "source_allowlist": [
+        "campus-faq.txt",
+        "library-hours.txt",
+        "rag-basics.md",
+        "lab-guide.md",
+        "library-services.html",
+        "course-project-guide.pdf",
+        "course-faq.docx",
+        "scanned-library-notice.png"
+      ],
+      "cohort": "legacy_sources_only"
+    },
+    {
+      "id": "q19",
+      "category": "compare",
+      "split": "test",
+      "question": "综合课程PDF提交指南与DOCX常见问题，提交物是否都要求保留.git？",
+      "reference_answer": "两份资料都要求保留.git",
+      "answerable": true,
+      "expected_evidence": [
+        {
+          "source": "course-project-guide.pdf",
+          "page": 1,
+          "contains": ".git"
+        },
+        {
+          "source": "course-faq.docx",
+          "page": 0,
+          "contains": ".git"
+        }
+      ],
+      "required_subquestions": [
+        "课程PDF提交指南",
+        "DOCX常见问题"
+      ],
+      "annotation_status": "PENDING_HUMAN; existing seen development annotation preserved",
+      "source_allowlist": [
+        "campus-faq.txt",
+        "library-hours.txt",
+        "rag-basics.md",
+        "lab-guide.md",
+        "library-services.html",
+        "course-project-guide.pdf",
+        "course-faq.docx",
+        "scanned-library-notice.png"
+      ],
+      "cohort": "legacy_sources_only"
+    },
+    {
+      "id": "q20",
+      "category": "compare",
+      "split": "test",
+      "question": "综合图书馆服务页和常见问题，研讨间人数与时长规定是否一致？",
+      "reference_answer": "一致，至少3人、最多2小时",
+      "answerable": true,
+      "expected_evidence": [
+        {
+          "source": "library-services.html",
+          "page": 0,
+          "contains": "至少 3 人"
+        },
+        {
+          "source": "campus-faq.txt",
+          "page": 0,
+          "contains": "至少 3 人"
+        }
+      ],
+      "required_subquestions": [
+        "图书馆服务页",
+        "常见问题"
+      ],
+      "annotation_status": "PENDING_HUMAN; existing seen development annotation preserved",
+      "source_allowlist": [
+        "campus-faq.txt",
+        "library-hours.txt",
+        "rag-basics.md",
+        "lab-guide.md",
+        "library-services.html",
+        "course-project-guide.pdf",
+        "course-faq.docx",
+        "scanned-library-notice.png"
+      ],
+      "cohort": "legacy_sources_only"
+    },
+    {
+      "id": "q21",
+      "category": "compare",
+      "split": "test",
+      "question": "结合RAG基础与实验指南，说明证据引用和评测应记录什么？",
+      "reference_answer": "引用编号对应证据；记录命中片段、来源和拒答",
+      "answerable": true,
+      "expected_evidence": [
+        {
+          "source": "rag-basics.md",
+          "page": 0,
+          "contains": "引用编号"
+        },
+        {
+          "source": "lab-guide.md",
+          "page": 0,
+          "contains": "至少记录三项"
+        }
+      ],
+      "required_subquestions": [
+        "引用",
+        "评测"
+      ],
+      "annotation_status": "PENDING_HUMAN; existing seen development annotation preserved",
+      "source_allowlist": [
+        "campus-faq.txt",
+        "library-hours.txt",
+        "rag-basics.md",
+        "lab-guide.md",
+        "library-services.html",
+        "course-project-guide.pdf",
+        "course-faq.docx",
+        "scanned-library-notice.png"
+      ],
+      "cohort": "legacy_sources_only"
+    },
+    {
+      "id": "q22",
+      "category": "ocr",
+      "split": "dev",
+      "question": "扫描通知中的期末周是第几周？",
+      "reference_answer": "第17-18周",
+      "answerable": true,
+      "expected_evidence": [
+        {
+          "source": "scanned-library-notice.png",
+          "page": 1,
+          "contains": "17-18"
+        }
+      ],
+      "required_subquestions": [
+        "扫描通知中的期末周是第几周？"
+      ],
+      "annotation_status": "PENDING_HUMAN; existing seen development annotation preserved",
+      "source_allowlist": [
+        "campus-faq.txt",
+        "library-hours.txt",
+        "rag-basics.md",
+        "lab-guide.md",
+        "library-services.html",
+        "course-project-guide.pdf",
+        "course-faq.docx",
+        "scanned-library-notice.png"
+      ],
+      "cohort": "legacy_sources_only"
+    },
+    {
+      "id": "q23",
+      "category": "ocr",
+      "split": "test",
+      "question": "扫描通知中主馆每天几点开放到几点？",
+      "reference_answer": "07:30-23:00",
+      "answerable": true,
+      "expected_evidence": [
+        {
+          "source": "scanned-library-notice.png",
+          "page": 1,
+          "contains": "07:30-23:00"
+        }
+      ],
+      "required_subquestions": [
+        "扫描通知中主馆每天几点开放到几点？"
+      ],
+      "annotation_status": "PENDING_HUMAN; existing seen development annotation preserved",
+      "source_allowlist": [
+        "campus-faq.txt",
+        "library-hours.txt",
+        "rag-basics.md",
+        "lab-guide.md",
+        "library-services.html",
+        "course-project-guide.pdf",
+        "course-faq.docx",
+        "scanned-library-notice.png"
+      ],
+      "cohort": "legacy_sources_only"
+    },
+    {
+      "id": "q24",
+      "category": "ocr",
+      "split": "test",
+      "question": "扫描通知中馆际互借服务台开放至几点？",
+      "reference_answer": "21:00",
+      "answerable": true,
+      "expected_evidence": [
+        {
+          "source": "scanned-library-notice.png",
+          "page": 1,
+          "contains": "21:00"
+        }
+      ],
+      "required_subquestions": [
+        "扫描通知中馆际互借服务台开放至几点？"
+      ],
+      "annotation_status": "PENDING_HUMAN; existing seen development annotation preserved",
+      "source_allowlist": [
+        "campus-faq.txt",
+        "library-hours.txt",
+        "rag-basics.md",
+        "lab-guide.md",
+        "library-services.html",
+        "course-project-guide.pdf",
+        "course-faq.docx",
+        "scanned-library-notice.png"
+      ],
+      "cohort": "legacy_sources_only"
+    },
+    {
+      "id": "q25",
+      "category": "outside",
+      "split": "dev",
+      "question": "2028年学校招生人数是多少？",
+      "reference_answer": "资料未提供，不应猜测",
+      "answerable": false,
+      "expected_evidence": [],
+      "required_subquestions": [
+        "2028年学校招生人数是多少？"
+      ],
+      "annotation_status": "PENDING_HUMAN; existing seen development annotation preserved",
+      "source_allowlist": [
+        "campus-faq.txt",
+        "library-hours.txt",
+        "rag-basics.md",
+        "lab-guide.md",
+        "library-services.html",
+        "course-project-guide.pdf",
+        "course-faq.docx",
+        "scanned-library-notice.png"
+      ],
+      "cohort": "legacy_sources_only"
+    },
+    {
+      "id": "q26",
+      "category": "outside",
+      "split": "dev",
+      "question": "这所学校校长的私人电话号码是多少？",
+      "reference_answer": "资料未提供，不应猜测",
+      "answerable": false,
+      "expected_evidence": [],
+      "required_subquestions": [
+        "这所学校校长的私人电话号码是多少？"
+      ],
+      "annotation_status": "PENDING_HUMAN; existing seen development annotation preserved",
+      "source_allowlist": [
+        "campus-faq.txt",
+        "library-hours.txt",
+        "rag-basics.md",
+        "lab-guide.md",
+        "library-services.html",
+        "course-project-guide.pdf",
+        "course-faq.docx",
+        "scanned-library-notice.png"
+      ],
+      "cohort": "legacy_sources_only"
+    },
+    {
+      "id": "q27",
+      "category": "outside",
+      "split": "test",
+      "question": "明天本地气温是多少？",
+      "reference_answer": "资料未提供，不应猜测",
+      "answerable": false,
+      "expected_evidence": [],
+      "required_subquestions": [
+        "明天本地气温是多少？"
+      ],
+      "annotation_status": "PENDING_HUMAN; existing seen development annotation preserved",
+      "source_allowlist": [
+        "campus-faq.txt",
+        "library-hours.txt",
+        "rag-basics.md",
+        "lab-guide.md",
+        "library-services.html",
+        "course-project-guide.pdf",
+        "course-faq.docx",
+        "scanned-library-notice.png"
+      ],
+      "cohort": "legacy_sources_only"
+    },
+    {
+      "id": "q28",
+      "category": "outside",
+      "split": "test",
+      "question": "学校食堂今日菜单是什么？",
+      "reference_answer": "资料未提供，不应猜测",
+      "answerable": false,
+      "expected_evidence": [],
+      "required_subquestions": [
+        "学校食堂今日菜单是什么？"
+      ],
+      "annotation_status": "PENDING_HUMAN; existing seen development annotation preserved",
+      "source_allowlist": [
+        "campus-faq.txt",
+        "library-hours.txt",
+        "rag-basics.md",
+        "lab-guide.md",
+        "library-services.html",
+        "course-project-guide.pdf",
+        "course-faq.docx",
+        "scanned-library-notice.png"
+      ],
+      "cohort": "legacy_sources_only"
+    },
+    {
+      "id": "q29",
+      "category": "outside",
+      "split": "test",
+      "question": "SVM在本课程实验中的准确率是多少？",
+      "reference_answer": "资料未提供，不应猜测",
+      "answerable": false,
+      "expected_evidence": [],
+      "required_subquestions": [
+        "SVM在本课程实验中的准确率是多少？"
+      ],
+      "annotation_status": "PENDING_HUMAN; existing seen development annotation preserved",
+      "source_allowlist": [
+        "campus-faq.txt",
+        "library-hours.txt",
+        "rag-basics.md",
+        "lab-guide.md",
+        "library-services.html",
+        "course-project-guide.pdf",
+        "course-faq.docx",
+        "scanned-library-notice.png"
+      ],
+      "cohort": "legacy_sources_only"
+    },
+    {
+      "id": "q30",
+      "category": "outside",
+      "split": "test",
+      "question": "图书馆是否承诺2029年免除所有逾期费？",
+      "reference_answer": "资料未提供，不应猜测",
+      "answerable": false,
+      "expected_evidence": [],
+      "required_subquestions": [
+        "图书馆是否承诺2029年免除所有逾期费？"
+      ],
+      "annotation_status": "PENDING_HUMAN; existing seen development annotation preserved",
+      "source_allowlist": [
+        "campus-faq.txt",
+        "library-hours.txt",
+        "rag-basics.md",
+        "lab-guide.md",
+        "library-services.html",
+        "course-project-guide.pdf",
+        "course-faq.docx",
+        "scanned-library-notice.png"
+      ],
+      "cohort": "legacy_sources_only"
+    },
+    {
+      "id": "p31",
+      "category": "image",
+      "cohort": "new_plugins",
+      "split": "development_extension",
+      "question": "What is the total amount in the receipt?",
+      "reference_answer": "128.50 CNY",
+      "answerable": true,
+      "expected_evidence": [
+        {
+          "source": "receipt.png",
+          "page": 1,
+          "contains": "128.50"
+        }
+      ],
+      "required_subquestions": [
+        "What is the total amount in the receipt?"
+      ],
+      "subquestion_evidence": {
+        "What is the total amount in the receipt?": [
+          {
+            "source": "receipt.png",
+            "page": 1,
+            "contains": "128.50"
+          }
+        ]
+      },
+      "annotation_status": "PENDING_HUMAN; deterministic authored fixture values inspected by AI, not model-generated gold",
+      "source_allowlist": [
+        "receipt.png"
+      ],
+      "automatic_answer_contains": [
+        "128.50"
+      ]
+    },
+    {
+      "id": "p32",
+      "category": "image",
+      "cohort": "new_plugins",
+      "split": "development_extension",
+      "question": "What is the status in the receipt?",
+      "reference_answer": "PAID",
+      "answerable": true,
+      "expected_evidence": [
+        {
+          "source": "receipt.png",
+          "page": 1,
+          "contains": "PAID"
+        }
+      ],
+      "required_subquestions": [
+        "What is the status in the receipt?"
+      ],
+      "subquestion_evidence": {
+        "What is the status in the receipt?": [
+          {
+            "source": "receipt.png",
+            "page": 1,
+            "contains": "PAID"
+          }
+        ]
+      },
+      "annotation_status": "PENDING_HUMAN; deterministic authored fixture values inspected by AI, not model-generated gold",
+      "source_allowlist": [
+        "receipt.png"
+      ],
+      "automatic_answer_contains": [
+        "PAID"
+      ]
+    },
+    {
+      "id": "p33",
+      "category": "image",
+      "cohort": "new_plugins",
+      "split": "development_extension",
+      "question": "What is the date on the receipt?",
+      "reference_answer": "2026-11-24",
+      "answerable": true,
+      "expected_evidence": [
+        {
+          "source": "receipt.png",
+          "page": 1,
+          "contains": "2026-11-24"
+        }
+      ],
+      "required_subquestions": [
+        "What is the date on the receipt?"
+      ],
+      "subquestion_evidence": {
+        "What is the date on the receipt?": [
+          {
+            "source": "receipt.png",
+            "page": 1,
+            "contains": "2026-11-24"
+          }
+        ]
+      },
+      "annotation_status": "PENDING_HUMAN; deterministic authored fixture values inspected by AI, not model-generated gold",
+      "source_allowlist": [
+        "receipt.png"
+      ],
+      "automatic_answer_contains": [
+        "2026-11-24"
+      ]
+    },
+    {
+      "id": "p34",
+      "category": "image",
+      "cohort": "new_plugins",
+      "split": "development_extension",
+      "question": "What is the receipt identifier?",
+      "reference_answer": "IMG-001",
+      "answerable": true,
+      "expected_evidence": [
+        {
+          "source": "receipt.png",
+          "page": 1,
+          "contains": "IMG-001"
+        }
+      ],
+      "required_subquestions": [
+        "What is the receipt identifier?"
+      ],
+      "subquestion_evidence": {
+        "What is the receipt identifier?": [
+          {
+            "source": "receipt.png",
+            "page": 1,
+            "contains": "IMG-001"
+          }
+        ]
+      },
+      "annotation_status": "PENDING_HUMAN; deterministic authored fixture values inspected by AI, not model-generated gold",
+      "source_allowlist": [
+        "receipt.png"
+      ],
+      "automatic_answer_contains": [
+        "IMG-001"
+      ]
+    },
+    {
+      "id": "p35",
+      "category": "image",
+      "cohort": "new_plugins",
+      "split": "development_extension",
+      "question": "What is the total amount in the JPEG receipt?",
+      "reference_answer": "128.50 CNY",
+      "answerable": true,
+      "expected_evidence": [
+        {
+          "source": "receipt.jpg",
+          "page": 1,
+          "contains": "128.50"
+        }
+      ],
+      "required_subquestions": [
+        "What is the total amount in the JPEG receipt?"
+      ],
+      "subquestion_evidence": {
+        "What is the total amount in the JPEG receipt?": [
+          {
+            "source": "receipt.jpg",
+            "page": 1,
+            "contains": "128.50"
+          }
+        ]
+      },
+      "annotation_status": "PENDING_HUMAN; deterministic authored fixture values inspected by AI, not model-generated gold",
+      "source_allowlist": [
+        "receipt.jpg"
+      ],
+      "automatic_answer_contains": [
+        "128.50"
+      ]
+    },
+    {
+      "id": "p36",
+      "category": "word",
+      "cohort": "new_plugins",
+      "split": "development_extension",
+      "question": "What is the warranty period in the equipment handbook?",
+      "reference_answer": "24 months",
+      "answerable": true,
+      "expected_evidence": [
+        {
+          "source": "handbook.docx",
+          "page": 0,
+          "contains": "24 months"
+        }
+      ],
+      "required_subquestions": [
+        "What is the warranty period in the equipment handbook?"
+      ],
+      "subquestion_evidence": {
+        "What is the warranty period in the equipment handbook?": [
+          {
+            "source": "handbook.docx",
+            "page": 0,
+            "contains": "24 months"
+          }
+        ]
+      },
+      "annotation_status": "PENDING_HUMAN; deterministic authored fixture values inspected by AI, not model-generated gold",
+      "source_allowlist": [
+        "handbook.docx"
+      ],
+      "automatic_answer_contains": [
+        "24 months"
+      ]
+    },
+    {
+      "id": "p37",
+      "category": "word",
+      "cohort": "new_plugins",
+      "split": "development_extension",
+      "question": "What is required for refunds in the equipment handbook?",
+      "reference_answer": "original receipt",
+      "answerable": true,
+      "expected_evidence": [
+        {
+          "source": "handbook.docx",
+          "page": 0,
+          "contains": "original receipt"
+        }
+      ],
+      "required_subquestions": [
+        "What is required for refunds in the equipment handbook?"
+      ],
+      "subquestion_evidence": {
+        "What is required for refunds in the equipment handbook?": [
+          {
+            "source": "handbook.docx",
+            "page": 0,
+            "contains": "original receipt"
+          }
+        ]
+      },
+      "annotation_status": "PENDING_HUMAN; deterministic authored fixture values inspected by AI, not model-generated gold",
+      "source_allowlist": [
+        "handbook.docx"
+      ],
+      "automatic_answer_contains": [
+        "original receipt"
+      ]
+    },
+    {
+      "id": "p38",
+      "category": "word_table",
+      "cohort": "new_plugins",
+      "split": "development_extension",
+      "question": "Model A的Recall是多少？",
+      "reference_answer": "85%",
+      "answerable": true,
+      "expected_evidence": [
+        {
+          "source": "handbook.docx",
+          "page": 0,
+          "contains": "Recall | 85% | 92%"
+        }
+      ],
+      "required_subquestions": [
+        "Model A的Recall是多少？"
+      ],
+      "subquestion_evidence": {
+        "Model A的Recall是多少？": [
+          {
+            "source": "handbook.docx",
+            "page": 0,
+            "contains": "Recall | 85% | 92%"
+          }
+        ]
+      },
+      "annotation_status": "PENDING_HUMAN; deterministic authored fixture values inspected by AI, not model-generated gold",
+      "source_allowlist": [
+        "handbook.docx"
+      ],
+      "automatic_answer_contains": [
+        "85%"
+      ]
+    },
+    {
+      "id": "p39",
+      "category": "word_table",
+      "cohort": "new_plugins",
+      "split": "development_extension",
+      "question": "Model B的Recall是多少？",
+      "reference_answer": "92%",
+      "answerable": true,
+      "expected_evidence": [
+        {
+          "source": "handbook.docx",
+          "page": 0,
+          "contains": "Recall | 85% | 92%"
+        }
+      ],
+      "required_subquestions": [
+        "Model B的Recall是多少？"
+      ],
+      "subquestion_evidence": {
+        "Model B的Recall是多少？": [
+          {
+            "source": "handbook.docx",
+            "page": 0,
+            "contains": "Recall | 85% | 92%"
+          }
+        ]
+      },
+      "annotation_status": "PENDING_HUMAN; deterministic authored fixture values inspected by AI, not model-generated gold",
+      "source_allowlist": [
+        "handbook.docx"
+      ],
+      "automatic_answer_contains": [
+        "92%"
+      ]
+    },
+    {
+      "id": "p40",
+      "category": "word_table",
+      "cohort": "new_plugins",
+      "split": "development_extension",
+      "question": "Model A的Cost是多少？",
+      "reference_answer": "10 CNY",
+      "answerable": true,
+      "expected_evidence": [
+        {
+          "source": "handbook.docx",
+          "page": 0,
+          "contains": "Cost | 10 CNY | 15 CNY"
+        }
+      ],
+      "required_subquestions": [
+        "Model A的Cost是多少？"
+      ],
+      "subquestion_evidence": {
+        "Model A的Cost是多少？": [
+          {
+            "source": "handbook.docx",
+            "page": 0,
+            "contains": "Cost | 10 CNY | 15 CNY"
+          }
+        ]
+      },
+      "annotation_status": "PENDING_HUMAN; deterministic authored fixture values inspected by AI, not model-generated gold",
+      "source_allowlist": [
+        "handbook.docx"
+      ],
+      "automatic_answer_contains": [
+        "10 CNY"
+      ]
+    },
+    {
+      "id": "p41",
+      "category": "word_table",
+      "cohort": "new_plugins",
+      "split": "development_extension",
+      "question": "Model B的Cost是多少？",
+      "reference_answer": "15 CNY",
+      "answerable": true,
+      "expected_evidence": [
+        {
+          "source": "handbook.docx",
+          "page": 0,
+          "contains": "Cost | 10 CNY | 15 CNY"
+        }
+      ],
+      "required_subquestions": [
+        "Model B的Cost是多少？"
+      ],
+      "subquestion_evidence": {
+        "Model B的Cost是多少？": [
+          {
+            "source": "handbook.docx",
+            "page": 0,
+            "contains": "Cost | 10 CNY | 15 CNY"
+          }
+        ]
+      },
+      "annotation_status": "PENDING_HUMAN; deterministic authored fixture values inspected by AI, not model-generated gold",
+      "source_allowlist": [
+        "handbook.docx"
+      ],
+      "automatic_answer_contains": [
+        "15 CNY"
+      ]
+    },
+    {
+      "id": "p42",
+      "category": "compare",
+      "cohort": "new_plugins",
+      "split": "development_extension",
+      "question": "Model A和Model B的Recall分别是多少？",
+      "reference_answer": "85% and 92%",
+      "answerable": true,
+      "expected_evidence": [
+        {
+          "source": "handbook.docx",
+          "page": 0,
+          "contains": "Recall | 85% | 92%"
+        }
+      ],
+      "required_subquestions": [
+        "Model A和Model B的Recall分别是多少？"
+      ],
+      "subquestion_evidence": {
+        "Model A和Model B的Recall分别是多少？": [
+          {
+            "source": "handbook.docx",
+            "page": 0,
+            "contains": "Recall | 85% | 92%"
+          }
+        ]
+      },
+      "annotation_status": "PENDING_HUMAN; deterministic authored fixture values inspected by AI, not model-generated gold",
+      "source_allowlist": [
+        "handbook.docx"
+      ],
+      "automatic_answer_contains": [
+        "85%",
+        "92%"
+      ]
+    },
+    {
+      "id": "p43",
+      "category": "calculation",
+      "cohort": "new_plugins",
+      "split": "development_extension",
+      "question": "计算Model A和Model B的Cost合计",
+      "reference_answer": "25 CNY",
+      "answerable": true,
+      "expected_evidence": [
+        {
+          "source": "handbook.docx",
+          "page": 0,
+          "contains": "Cost | 10 CNY | 15 CNY"
+        }
+      ],
+      "required_subquestions": [
+        "计算Model A和Model B的Cost合计"
+      ],
+      "subquestion_evidence": {
+        "计算Model A和Model B的Cost合计": [
+          {
+            "source": "handbook.docx",
+            "page": 0,
+            "contains": "Cost | 10 CNY | 15 CNY"
+          }
+        ]
+      },
+      "annotation_status": "PENDING_HUMAN; deterministic authored fixture values inspected by AI, not model-generated gold",
+      "source_allowlist": [
+        "handbook.docx"
+      ],
+      "automatic_answer_contains": [
+        "25",
+        "CNY"
+      ]
+    },
+    {
+      "id": "p44",
+      "category": "calculation",
+      "cohort": "new_plugins",
+      "split": "development_extension",
+      "question": "比较Model A和Model B的Cost差值",
+      "reference_answer": "5 CNY",
+      "answerable": true,
+      "expected_evidence": [
+        {
+          "source": "handbook.docx",
+          "page": 0,
+          "contains": "Cost | 10 CNY | 15 CNY"
+        }
+      ],
+      "required_subquestions": [
+        "比较Model A和Model B的Cost差值"
+      ],
+      "subquestion_evidence": {
+        "比较Model A和Model B的Cost差值": [
+          {
+            "source": "handbook.docx",
+            "page": 0,
+            "contains": "Cost | 10 CNY | 15 CNY"
+          }
+        ]
+      },
+      "annotation_status": "PENDING_HUMAN; deterministic authored fixture values inspected by AI, not model-generated gold",
+      "source_allowlist": [
+        "handbook.docx"
+      ],
+      "automatic_answer_contains": [
+        "5",
+        "CNY"
+      ]
+    },
+    {
+      "id": "p45",
+      "category": "excel",
+      "cohort": "new_plugins",
+      "split": "development_extension",
+      "question": "LogReg的Accuracy是多少？",
+      "reference_answer": "90.00%",
+      "answerable": true,
+      "expected_evidence": [
+        {
+          "source": "measurements.xlsx",
+          "page": 0,
+          "contains": "LogReg | 90.00% | 80.00%"
+        }
+      ],
+      "required_subquestions": [
+        "LogReg的Accuracy是多少？"
+      ],
+      "subquestion_evidence": {
+        "LogReg的Accuracy是多少？": [
+          {
+            "source": "measurements.xlsx",
+            "page": 0,
+            "contains": "LogReg | 90.00% | 80.00%"
+          }
+        ]
+      },
+      "annotation_status": "PENDING_HUMAN; deterministic authored fixture values inspected by AI, not model-generated gold",
+      "source_allowlist": [
+        "measurements.xlsx"
+      ],
+      "automatic_answer_contains": [
+        "90.00%"
+      ]
+    },
+    {
+      "id": "p46",
+      "category": "excel",
+      "cohort": "new_plugins",
+      "split": "development_extension",
+      "question": "SVM的Accuracy是多少？",
+      "reference_answer": "95.00%",
+      "answerable": true,
+      "expected_evidence": [
+        {
+          "source": "measurements.xlsx",
+          "page": 0,
+          "contains": "SVM | 95.00% | 85.00%"
+        }
+      ],
+      "required_subquestions": [
+        "SVM的Accuracy是多少？"
+      ],
+      "subquestion_evidence": {
+        "SVM的Accuracy是多少？": [
+          {
+            "source": "measurements.xlsx",
+            "page": 0,
+            "contains": "SVM | 95.00% | 85.00%"
+          }
+        ]
+      },
+      "annotation_status": "PENDING_HUMAN; deterministic authored fixture values inspected by AI, not model-generated gold",
+      "source_allowlist": [
+        "measurements.xlsx"
+      ],
+      "automatic_answer_contains": [
+        "95.00%"
+      ]
+    },
+    {
+      "id": "p47",
+      "category": "excel",
+      "cohort": "new_plugins",
+      "split": "development_extension",
+      "question": "LogReg的Recall是多少？",
+      "reference_answer": "80.00%",
+      "answerable": true,
+      "expected_evidence": [
+        {
+          "source": "measurements.xlsx",
+          "page": 0,
+          "contains": "LogReg | 90.00% | 80.00%"
+        }
+      ],
+      "required_subquestions": [
+        "LogReg的Recall是多少？"
+      ],
+      "subquestion_evidence": {
+        "LogReg的Recall是多少？": [
+          {
+            "source": "measurements.xlsx",
+            "page": 0,
+            "contains": "LogReg | 90.00% | 80.00%"
+          }
+        ]
+      },
+      "annotation_status": "PENDING_HUMAN; deterministic authored fixture values inspected by AI, not model-generated gold",
+      "source_allowlist": [
+        "measurements.xlsx"
+      ],
+      "automatic_answer_contains": [
+        "80.00%"
+      ]
+    },
+    {
+      "id": "p48",
+      "category": "excel",
+      "cohort": "new_plugins",
+      "split": "development_extension",
+      "question": "SVM的Recall是多少？",
+      "reference_answer": "85.00%",
+      "answerable": true,
+      "expected_evidence": [
+        {
+          "source": "measurements.xlsx",
+          "page": 0,
+          "contains": "SVM | 95.00% | 85.00%"
+        }
+      ],
+      "required_subquestions": [
+        "SVM的Recall是多少？"
+      ],
+      "subquestion_evidence": {
+        "SVM的Recall是多少？": [
+          {
+            "source": "measurements.xlsx",
+            "page": 0,
+            "contains": "SVM | 95.00% | 85.00%"
+          }
+        ]
+      },
+      "annotation_status": "PENDING_HUMAN; deterministic authored fixture values inspected by AI, not model-generated gold",
+      "source_allowlist": [
+        "measurements.xlsx"
+      ],
+      "automatic_answer_contains": [
+        "85.00%"
+      ]
+    },
+    {
+      "id": "p49",
+      "category": "compare",
+      "cohort": "new_plugins",
+      "split": "development_extension",
+      "question": "比较LogReg和SVM的Accuracy",
+      "reference_answer": "90.00% and 95.00%",
+      "answerable": true,
+      "expected_evidence": [
+        {
+          "source": "measurements.xlsx",
+          "page": 0,
+          "contains": "LogReg | 90.00% | 80.00%"
+        },
+        {
+          "source": "measurements.xlsx",
+          "page": 0,
+          "contains": "SVM | 95.00% | 85.00%"
+        }
+      ],
+      "required_subquestions": [
+        "比较LogReg和SVM的Accuracy"
+      ],
+      "subquestion_evidence": {
+        "比较LogReg和SVM的Accuracy": [
+          {
+            "source": "measurements.xlsx",
+            "page": 0,
+            "contains": "LogReg | 90.00% | 80.00%"
+          },
+          {
+            "source": "measurements.xlsx",
+            "page": 0,
+            "contains": "SVM | 95.00% | 85.00%"
+          }
+        ]
+      },
+      "annotation_status": "PENDING_HUMAN; deterministic authored fixture values inspected by AI, not model-generated gold",
+      "source_allowlist": [
+        "measurements.xlsx"
+      ],
+      "automatic_answer_contains": [
+        "90.00%",
+        "95.00%"
+      ]
+    },
+    {
+      "id": "p50",
+      "category": "compare",
+      "cohort": "new_plugins",
+      "split": "development_extension",
+      "question": "比较LogReg和SVM的Accuracy和Recall",
+      "reference_answer": "90.00%,80.00%,95.00%,85.00%",
+      "answerable": true,
+      "expected_evidence": [
+        {
+          "source": "measurements.xlsx",
+          "page": 0,
+          "contains": "LogReg | 90.00% | 80.00%"
+        },
+        {
+          "source": "measurements.xlsx",
+          "page": 0,
+          "contains": "SVM | 95.00% | 85.00%"
+        }
+      ],
+      "required_subquestions": [
+        "比较LogReg和SVM的Accuracy和Recall"
+      ],
+      "subquestion_evidence": {
+        "比较LogReg和SVM的Accuracy和Recall": [
+          {
+            "source": "measurements.xlsx",
+            "page": 0,
+            "contains": "LogReg | 90.00% | 80.00%"
+          },
+          {
+            "source": "measurements.xlsx",
+            "page": 0,
+            "contains": "SVM | 95.00% | 85.00%"
+          }
+        ]
+      },
+      "annotation_status": "PENDING_HUMAN; deterministic authored fixture values inspected by AI, not model-generated gold",
+      "source_allowlist": [
+        "measurements.xlsx"
+      ],
+      "automatic_answer_contains": [
+        "90.00%",
+        "80.00%",
+        "95.00%",
+        "85.00%"
+      ]
+    },
+    {
+      "id": "p51",
+      "category": "cross_sheet",
+      "cohort": "new_plugins",
+      "split": "development_extension",
+      "question": "比较SVM和Model C的Accuracy",
+      "reference_answer": "Models SVM95.00%;Merged Model C91.00%",
+      "answerable": true,
+      "expected_evidence": [
+        {
+          "source": "measurements.xlsx",
+          "page": 0,
+          "contains": "SVM | 95.00% | 85.00%"
+        },
+        {
+          "source": "measurements.xlsx",
+          "page": 0,
+          "contains": "Model C | 91.00% | 87.00%"
+        }
+      ],
+      "required_subquestions": [
+        "比较SVM和Model C的Accuracy"
+      ],
+      "subquestion_evidence": {
+        "比较SVM和Model C的Accuracy": [
+          {
+            "source": "measurements.xlsx",
+            "page": 0,
+            "contains": "SVM | 95.00% | 85.00%"
+          },
+          {
+            "source": "measurements.xlsx",
+            "page": 0,
+            "contains": "Model C | 91.00% | 87.00%"
+          }
+        ]
+      },
+      "annotation_status": "PENDING_HUMAN; deterministic authored fixture values inspected by AI, not model-generated gold",
+      "source_allowlist": [
+        "measurements.xlsx"
+      ],
+      "automatic_answer_contains": [
+        "95.00%",
+        "91.00%"
+      ]
+    },
+    {
+      "id": "p52",
+      "category": "excel",
+      "cohort": "new_plugins",
+      "split": "development_extension",
+      "question": "Laptop的Amount是多少？",
+      "reference_answer": "¥1200.50",
+      "answerable": true,
+      "expected_evidence": [
+        {
+          "source": "measurements.xlsx",
+          "page": 0,
+          "contains": "¥1200.50"
+        }
+      ],
+      "required_subquestions": [
+        "Laptop的Amount是多少？"
+      ],
+      "subquestion_evidence": {
+        "Laptop的Amount是多少？": [
+          {
+            "source": "measurements.xlsx",
+            "page": 0,
+            "contains": "¥1200.50"
+          }
+        ]
+      },
+      "annotation_status": "PENDING_HUMAN; deterministic authored fixture values inspected by AI, not model-generated gold",
+      "source_allowlist": [
+        "measurements.xlsx"
+      ],
+      "automatic_answer_contains": [
+        "1200.50"
+      ]
+    },
+    {
+      "id": "p53",
+      "category": "excel",
+      "cohort": "new_plugins",
+      "split": "development_extension",
+      "question": "Cable的Amount是多少？",
+      "reference_answer": "¥20.00",
+      "answerable": true,
+      "expected_evidence": [
+        {
+          "source": "measurements.xlsx",
+          "page": 0,
+          "contains": "¥20.00"
+        }
+      ],
+      "required_subquestions": [
+        "Cable的Amount是多少？"
+      ],
+      "subquestion_evidence": {
+        "Cable的Amount是多少？": [
+          {
+            "source": "measurements.xlsx",
+            "page": 0,
+            "contains": "¥20.00"
+          }
+        ]
+      },
+      "annotation_status": "PENDING_HUMAN; deterministic authored fixture values inspected by AI, not model-generated gold",
+      "source_allowlist": [
+        "measurements.xlsx"
+      ],
+      "automatic_answer_contains": [
+        "20.00"
+      ]
+    },
+    {
+      "id": "p54",
+      "category": "excel",
+      "cohort": "new_plugins",
+      "split": "development_extension",
+      "question": "Laptop的Date是什么？",
+      "reference_answer": "2026-11-24",
+      "answerable": true,
+      "expected_evidence": [
+        {
+          "source": "measurements.xlsx",
+          "page": 0,
+          "contains": "2026-11-24"
+        }
+      ],
+      "required_subquestions": [
+        "Laptop的Date是什么？"
+      ],
+      "subquestion_evidence": {
+        "Laptop的Date是什么？": [
+          {
+            "source": "measurements.xlsx",
+            "page": 0,
+            "contains": "2026-11-24"
+          }
+        ]
+      },
+      "annotation_status": "PENDING_HUMAN; deterministic authored fixture values inspected by AI, not model-generated gold",
+      "source_allowlist": [
+        "measurements.xlsx"
+      ],
+      "automatic_answer_contains": [
+        "2026-11-24"
+      ]
+    },
+    {
+      "id": "p55",
+      "category": "calculation",
+      "cohort": "new_plugins",
+      "split": "development_extension",
+      "question": "计算Laptop和Cable的Amount合计",
+      "reference_answer": "1220.50 ¥",
+      "answerable": true,
+      "expected_evidence": [
+        {
+          "source": "measurements.xlsx",
+          "page": 0,
+          "contains": "¥1200.50"
+        },
+        {
+          "source": "measurements.xlsx",
+          "page": 0,
+          "contains": "¥20.00"
+        }
+      ],
+      "required_subquestions": [
+        "计算Laptop和Cable的Amount合计"
+      ],
+      "subquestion_evidence": {
+        "计算Laptop和Cable的Amount合计": [
+          {
+            "source": "measurements.xlsx",
+            "page": 0,
+            "contains": "¥1200.50"
+          },
+          {
+            "source": "measurements.xlsx",
+            "page": 0,
+            "contains": "¥20.00"
+          }
+        ]
+      },
+      "annotation_status": "PENDING_HUMAN; deterministic authored fixture values inspected by AI, not model-generated gold",
+      "source_allowlist": [
+        "measurements.xlsx"
+      ],
+      "automatic_answer_contains": [
+        "1220.50"
+      ]
+    },
+    {
+      "id": "p56",
+      "category": "formula",
+      "cohort": "new_plugins",
+      "split": "development_extension",
+      "question": "Budget工作表公式=B2+B3是否有可用缓存？",
+      "reference_answer": "UNAVAILABLE; no formula evaluation",
+      "answerable": true,
+      "expected_evidence": [
+        {
+          "source": "measurements.xlsx",
+          "page": 0,
+          "contains": "=B2+B3 [cached=UNAVAILABLE]"
+        }
+      ],
+      "required_subquestions": [
+        "Budget工作表公式=B2+B3是否有可用缓存？"
+      ],
+      "subquestion_evidence": {
+        "Budget工作表公式=B2+B3是否有可用缓存？": [
+          {
+            "source": "measurements.xlsx",
+            "page": 0,
+            "contains": "=B2+B3 [cached=UNAVAILABLE]"
+          }
+        ]
+      },
+      "annotation_status": "PENDING_HUMAN; deterministic authored fixture values inspected by AI, not model-generated gold",
+      "source_allowlist": [
+        "measurements.xlsx"
+      ],
+      "automatic_answer_contains": [
+        "UNAVAILABLE"
+      ]
+    },
+    {
+      "id": "p57",
+      "category": "merged_table",
+      "cohort": "new_plugins",
+      "split": "development_extension",
+      "question": "Model C的Recall是多少？",
+      "reference_answer": "87.00%",
+      "answerable": true,
+      "expected_evidence": [
+        {
+          "source": "measurements.xlsx",
+          "page": 0,
+          "contains": "Model C | 91.00% | 87.00%"
+        }
+      ],
+      "required_subquestions": [
+        "Model C的Recall是多少？"
+      ],
+      "subquestion_evidence": {
+        "Model C的Recall是多少？": [
+          {
+            "source": "measurements.xlsx",
+            "page": 0,
+            "contains": "Model C | 91.00% | 87.00%"
+          }
+        ]
+      },
+      "annotation_status": "PENDING_HUMAN; deterministic authored fixture values inspected by AI, not model-generated gold",
+      "source_allowlist": [
+        "measurements.xlsx"
+      ],
+      "automatic_answer_contains": [
+        "87.00%"
+      ]
+    },
+    {
+      "id": "p58",
+      "category": "cross_document",
+      "cohort": "new_plugins",
+      "split": "development_extension",
+      "question": "What is the warranty period? SVM的Accuracy是多少？",
+      "reference_answer": "24 months and95.00%",
+      "answerable": true,
+      "expected_evidence": [
+        {
+          "source": "handbook.docx",
+          "page": 0,
+          "contains": "24 months"
+        },
+        {
+          "source": "measurements.xlsx",
+          "page": 0,
+          "contains": "SVM | 95.00% | 85.00%"
+        }
+      ],
+      "required_subquestions": [
+        "What is the warranty period? SVM的Accuracy是多少？"
+      ],
+      "subquestion_evidence": {
+        "What is the warranty period? SVM的Accuracy是多少？": [
+          {
+            "source": "handbook.docx",
+            "page": 0,
+            "contains": "24 months"
+          },
+          {
+            "source": "measurements.xlsx",
+            "page": 0,
+            "contains": "SVM | 95.00% | 85.00%"
+          }
+        ]
+      },
+      "annotation_status": "PENDING_HUMAN; deterministic authored fixture values inspected by AI, not model-generated gold",
+      "source_allowlist": [
+        "handbook.docx",
+        "measurements.xlsx"
+      ],
+      "automatic_answer_contains": [
+        "24 months",
+        "95.00%"
+      ]
+    },
+    {
+      "id": "p59",
+      "category": "outside",
+      "cohort": "new_plugins",
+      "split": "development_extension",
+      "question": "What is the receipt holder private phone number?",
+      "reference_answer": "not supplied",
+      "answerable": false,
+      "expected_evidence": [],
+      "required_subquestions": [
+        "What is the receipt holder private phone number?"
+      ],
+      "subquestion_evidence": {},
+      "annotation_status": "PENDING_HUMAN; deterministic authored fixture values inspected by AI, not model-generated gold",
+      "source_allowlist": [
+        "receipt.png"
+      ],
+      "automatic_answer_contains": []
+    },
+    {
+      "id": "p60",
+      "category": "outside",
+      "cohort": "new_plugins",
+      "split": "development_extension",
+      "question": "2029年SVM的Accuracy是多少？",
+      "reference_answer": "not supplied for2029",
+      "answerable": false,
+      "expected_evidence": [],
+      "required_subquestions": [
+        "2029年SVM的Accuracy是多少？"
+      ],
+      "subquestion_evidence": {},
+      "annotation_status": "PENDING_HUMAN; deterministic authored fixture values inspected by AI, not model-generated gold",
+      "source_allowlist": [
+        "measurements.xlsx"
+      ],
+      "automatic_answer_contains": []
+    }
+  ]
+}

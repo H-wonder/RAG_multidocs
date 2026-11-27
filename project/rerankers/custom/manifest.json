@@ -1,0 +1,1 @@
+{"name":"custom","kind":"reranker","version":"1.0.0","contract_version":"1","entry":"adapter:rank","enabled":true,"requires":[],"config":{"preferred_term":"表格"}}

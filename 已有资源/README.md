@@ -20,7 +20,7 @@ Airflow、邮件通知、人工复核等与本课程无关的运行时。
 - 50 个离线单元测试 + 1 个 Milvus 集成测试，CI unit/integration 两个 job。
 
 后续 P0/P1/P2 任务和组内分工见
-[`../project/docs/ROADMAP.md`](../project/docs/ROADMAP.md)。
+[`../project/docs/history/ROADMAP.md`](../project/docs/history/ROADMAP.md)。
 
 ## 目录
 

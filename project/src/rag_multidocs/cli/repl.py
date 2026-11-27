@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import getpass
 import os
 import shlex
@@ -18,7 +19,8 @@ from ..credentials import (
     unset_key,
 )
 from ..providers.discovery import DiscoveryError, discover_models
-from ..qa.llm import answer_with_evidence, build_chat_model
+from ..retrieval.profiles import recommended_policies
+from .asking import print_answer, print_trace, trace_summary
 from ..providers import (
     chat_provider,
     embedding_provider,
@@ -50,8 +52,11 @@ HELP = """\
 命令也可以省略开头的 /（例如 setup 等同 /setup）
 /help                         显示帮助
 /search <问题>                只检索，不调用 LLM
-/ask <问题>                   检索并生成答案
-/ingest <source> <path>       导入文档，例如 /ingest txt samples/notes.txt
+/ask <问题>                   检索并生成经证据校验的答案
+/policy [名称]                查看或切换 stable/lightweight/quality/experimental
+/trace                        显示上次问答的诊断摘要
+/ingest auto <路径> [...]      自动识别文件，目录递归导入，含空格请加引号
+/ingest <source> <路径> [...]  指定 Connector 导入
 /docs                         文档列表
 /stats                        索引统计
 /connectors                   连接器列表
@@ -106,18 +111,6 @@ def _print_hits(hits: list[dict], snippet_chars: int = 120) -> None:
         print(f"    {snippet[:snippet_chars]}")
 
 
-def _print_citations(citations: list[dict]) -> None:
-    if not citations:
-        return
-    print("来源：")
-    for citation in citations:
-        section = f" §{citation['section_path']}" if citation["section_path"] else ""
-        print(
-            f"[{citation['index']}] {citation['source']}"
-            f" p{citation['page']}{section}"
-        )
-
-
 class Session:
     """Holds runtime state for one interactive session."""
 
@@ -126,6 +119,7 @@ class Session:
         self.settings = Settings.load(config_path)
         self._runtime = None
         self._running = True
+        self.last_trace = None
 
     # -- runtime ---------------------------------------------------------
     @property
@@ -144,10 +138,25 @@ class Session:
             self._runtime = runtime
         return self._runtime
 
+    def close(self) -> None:
+        if self._runtime is not None:
+            runtime, self._runtime = self._runtime, None
+            runtime.close()
+
     def reload_settings(self, *, rebuild: bool) -> None:
-        self.settings = Settings.load(self.config_path)
-        if rebuild:
-            self._runtime = None
+        updated = Settings.load(self.config_path)
+        keys = (
+            "data_dir", "connectors_dir", "enabled_connectors", "docparse_repo",
+            "docparse_python", "docparse_mode", "docparse_timeout_s", "index_backend",
+            "fallback_to_keyword", "milvus_uri", "milvus_db", "milvus_collection",
+            "milvus_dense_weight", "milvus_sparse_weight", "embed_backend",
+            "embed_model", "embed_dim", "embed_base_url",
+        )
+        if rebuild and any(getattr(self.settings, k) != getattr(updated, k) for k in keys):
+            self.close()
+        elif self._runtime is not None:
+            self._runtime.invalidate_chat()
+        self.settings = updated
 
     # -- dispatch --------------------------------------------------------
     def _command_names(self) -> set[str]:
@@ -218,46 +227,43 @@ class Session:
             return
         self.do_ask(query)
 
+    def cmd_policy(self, args: list[str]) -> None:
+        choices = recommended_policies()
+        if not args:
+            print(f"当前策略 {self.settings.rag_policy}。可选 {', '.join(choices)}")
+        elif len(args) == 1 and args[0].lower() in choices:
+            self.settings.rag_policy = args[0].lower()
+            print(f"当前会话策略 {self.settings.rag_policy}")
+        else:
+            print(f"用法 /policy [{'|'.join(choices)}]", file=sys.stderr)
+
+    def cmd_trace(self, args: list[str]) -> None:
+        if args:
+            print("用法 /trace", file=sys.stderr)
+        elif self.last_trace is None:
+            print("当前会话尚无问答记录。")
+        else:
+            print_trace(self.last_trace)
+
     def cmd_ingest(self, args: list[str]) -> None:
-        if len(args) < 2:
-            print("用法: /ingest <source> <path> [--mode auto|page|region]", file=sys.stderr)
+        from .app import print_ingest_report
+
+        parser = argparse.ArgumentParser(prog="/ingest", description="auto 自动匹配 Connector，或指定名称")
+        parser.add_argument("source")
+        parser.add_argument("paths", nargs="+", metavar="PATH", help="文件或目录，支持多个路径")
+        parser.add_argument("--mode", choices=["auto", "page", "region"])
+        try:
+            values = parser.parse_intermixed_args(args)
+        except SystemExit:
             return
-        source, path = args[0], args[1]
-        mode = None
-        rest = args[2:]
-        for index, item in enumerate(rest):
-            if item == "--mode" and index + 1 < len(rest):
-                mode = rest[index + 1]
-            elif item.startswith("--mode="):
-                mode = item.split("=", 1)[1]
-        report = self.runtime.ingest.ingest(
-            source, path, {"mode": mode} if mode else {}
-        )
-        print(f"connector: {report.connector}")
-        print(f"index: {self.runtime.backend}")
-        print(f"documents: {len(report.documents)}")
-        print(f"chunks: {report.chunks}")
-        print(f"issues: {len(report.issues)}")
-        for document in report.documents:
-            print(
-                f"  + {document['source']}  {document['chunks']} chunks"
-                f"  doc_id={document['doc_id']}"
-            )
-        for issue in report.issues:
-            location = f" ({issue.source})" if issue.source else ""
-            print(f"[{issue.code}] {issue.message}{location}", file=sys.stderr)
+        options = {"mode": values.mode} if values.mode else {}
+        report = self.runtime.ingest.ingest(values.source, values.paths, options)
+        print_ingest_report(report, self.runtime.backend)
 
     def cmd_docs(self, args: list[str]) -> None:
-        docs = self.runtime.index.list_docs()
-        if not docs:
-            print("no documents")
-            return
-        print(f"{'source':40} {'chunks':>6} {'pages':>6}  doc_id")
-        for doc in docs:
-            print(
-                f"{doc['source']:40} {doc['chunks']:6} {doc['pages']:6}"
-                f"  {doc['doc_id']}"
-            )
+        from .app import print_documents
+
+        print_documents(self.runtime.index.list_docs())
 
     def cmd_stats(self, args: list[str]) -> None:
         data = {**self.runtime.index.stats(), "backend": self.runtime.backend}
@@ -449,6 +455,8 @@ class Session:
             self.settings.chat_model = ""
             self.settings.chat_base_url = ""
             path = self.settings.save(self.config_path)
+            if self._runtime is not None:
+                self._runtime.invalidate_chat()
             print(f"chat -> 已关闭（仅检索）; config -> {path}")
             return
         rest = args[2:]
@@ -469,6 +477,8 @@ class Session:
         try:
             if kind == "chat":
                 preset = chat_provider(provider)
+                if self.settings.chat_provider != provider:
+                    self.settings.chat_base_url = ""
                 self.settings.chat_provider = provider
                 self.settings.chat_model = model
                 print(
@@ -493,7 +503,9 @@ class Session:
         path = self.settings.save(self.config_path)
         print(f"config -> {path}")
         if rebuild:
-            self._runtime = None
+            self.close()
+        elif self._runtime is not None:
+            self._runtime.invalidate_chat()
         if getattr(preset, "api_key_env", ""):
             print(f"如需填 Key: /keys set {provider}")
 
@@ -552,6 +564,8 @@ class Session:
             print("未输入，已取消。", file=sys.stderr)
             return
         path = set_key(env_name, value, self.settings.credentials_file)
+        if self._runtime is not None:
+            self._runtime.invalidate_chat()
         print(f"已保存 {env_name}={mask(value)} -> {path}")
 
     def _keys_unset(self, args: list[str]) -> None:
@@ -564,6 +578,8 @@ class Session:
             print(f"[CONFIG_ERROR] {exc}", file=sys.stderr)
             return
         if unset_key(env_name, self.settings.credentials_file):
+            if self._runtime is not None:
+                self._runtime.invalidate_chat()
             print(f"已删除 {env_name}")
         else:
             print(f"{env_name} 未保存，无需删除")
@@ -578,7 +594,11 @@ class Session:
     def cmd_config(self, args: list[str]) -> None:
         settings = self.settings
         print(f"config: {Path(self.config_path)}")
+        paths = settings.resolved_connector_settings()
+        for name in ("connectors_dir", "docparse_repo", "docparse_python"):
+            print(f"{name}: {paths[name] or '未找到'}")
         print(f"index: {settings.index_backend} collection={settings.milvus_collection}")
+        print(f"policy: {settings.rag_policy}")
         model = settings.embed_model or embedding_provider(
             settings.embed_backend
         ).default_model
@@ -596,40 +616,11 @@ class Session:
 
     # -- RAG ask ---------------------------------------------------------
     def do_ask(self, question: str) -> None:
-        settings = self.settings
-        hits = self.runtime.search.search(question, top_k=settings.rag_top_k)
-        if not hits:
-            print("没有检索到相关依据。")
-            return
-        if not settings.chat_provider:
-            _print_hits(hits)
-            print("提示：未配置 chat provider，以上是检索证据。输入 /setup 选择模型并填入 Key。")
-            return
-        try:
-            chat = build_chat_model(
-                settings.chat_provider,
-                model=settings.chat_model,
-                base_url=settings.chat_base_url,
-                temperature=settings.chat_temperature,
-                max_tokens=settings.chat_max_tokens,
-            )
-        except ValueError as exc:
-            print(f"[CONFIG_ERROR] {exc}", file=sys.stderr)
-            _print_hits(hits)
-            return
-
-        print(_color("答案：", "1;36"))
-        try:
-            result = answer_with_evidence(
-                question, hits, chat, on_token=_stream_token
-            )
-        except RuntimeError as exc:
-            print(f"\n[LLM_ERROR] {exc}", file=sys.stderr)
-            return
-        print()
-        if result["citations"]:
-            print()
-            _print_citations(result["citations"])
+        result = self.runtime.ask(self.settings, question)
+        self.last_trace = trace_summary(result, self.settings.rag_policy)
+        print_answer(result, _print_hits)
+        if result["status"] == "retrieval_only":
+            print("未配置聊天模型。输入 /model 选择模型，或继续仅检索。")
 
     def _key_summary(self, env_name: str) -> str:
         if not env_name:
@@ -638,10 +629,6 @@ class Session:
         if not source:
             return "未设置"
         return f"{mask(os.environ.get(env_name, ''))} ({source})"
-
-
-def _stream_token(token: str) -> None:
-    print(token, end="", flush=True)
 
 
 def _setup_readline(history_path: Path) -> None:
@@ -704,7 +691,10 @@ def run_repl(config_path: str = "config.json") -> int:
             except Exception as exc:  # 单条命令失败不应退出会话
                 print(f"[ERROR] {exc}", file=sys.stderr)
     finally:
-        _save_readline(creds.parent / "history")
+        try:
+            session.close()
+        finally:
+            _save_readline(creds.parent / "history")
     print("bye")
     return 0
 

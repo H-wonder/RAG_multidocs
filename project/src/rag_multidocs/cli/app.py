@@ -8,10 +8,12 @@ import json
 import os
 import shlex
 import sys
-from dataclasses import asdict, dataclass
+from contextlib import closing
+from dataclasses import dataclass
+from functools import partial
+from pathlib import Path
 
 from ..config import Settings
-from ..connectors.txt import TxtConnector
 from ..contracts import ConnectorError
 from ..providers.discovery import DiscoveryError, discover_models
 from ..credentials import (
@@ -25,8 +27,12 @@ from ..credentials import (
     unset_key,
 )
 from ..index import KeywordIndex
-from ..ingestion import IngestService
-from ..qa.llm import answer_with_evidence, build_chat_model
+from ..ingestion.batch import BatchIngestReport
+from ..core import RAGCore
+from ..rerankers import RerankerRegistry
+from ..services import build_connector_registry, configured_chat, configured_chat_budget, create_core
+from ..retrieval.profiles import recommended_policies
+from .asking import configured_policy, print_answer, print_trace, retrieval_only, trace_summary
 from ..providers import (
     chat_provider,
     embedding_provider,
@@ -52,12 +58,49 @@ def add_config(parser: argparse.ArgumentParser) -> None:
 
 @dataclass
 class Runtime:
-    registry: ConnectorRegistry
-    index: object
-    ingest: IngestService
+    core: RAGCore
     search: SearchService
     backend: str
     warning: str = ""
+    _chat_signature: tuple | None = None
+
+    @property
+    def index(self):
+        return self.core.index
+
+    @property
+    def registry(self):
+        return self.ingest.registry
+
+    @property
+    def ingest(self):
+        return self.core.ingestion
+
+    def invalidate_chat(self):
+        self._chat_signature = None
+        self.core.chat = None
+
+    def ask(self, settings, query, *, top_k=None, doc_ids=None, no_generate=False):
+        generate = bool(settings.chat_provider) and not no_generate
+        if top_k is None and not generate:
+            top_k = settings.rag_top_k
+        policy = configured_policy(settings, top_k=top_k)
+        policy.resources(query)  # Report incompatible budgets as configuration errors.
+        self.core.controller.policy = policy
+        if not generate:
+            return retrieval_only(self.core.search(query, doc_ids=doc_ids))
+        budget = configured_chat_budget(settings)
+        signature = (settings.chat_provider, settings.chat_model, settings.chat_base_url,
+                     settings.chat_temperature, budget)
+        if signature != self._chat_signature:
+            self.core.chat = None
+            self.core.chat_factory = partial(configured_chat, settings, budget=budget)
+            self.core.chat_budget_factory = lambda: budget
+            self._chat_signature = signature
+        return self.core.ask(query, doc_ids=doc_ids)
+
+    def close(self):
+        self.core.close()
 
 
 def _keyword_index(settings: Settings) -> KeywordIndex:
@@ -102,33 +145,61 @@ def _build_index(settings: Settings):
 
 
 def build_registry(settings: Settings) -> ConnectorRegistry:
-    registry = ConnectorRegistry(
-        plugins_dir=settings.connectors_dir,
-        enabled=set(settings.enabled_connectors),
-        context={"settings": asdict(settings)},
-    )
-    # 核心只内置 TXT；PDF/Markdown/HTML 都从 connectors_dir 以插件方式加载。
-    registry.register(TxtConnector())
-    return registry
+    return build_connector_registry(settings)
 
 
 def build_runtime(settings: Settings) -> Runtime:
     registry = build_registry(settings)
     index, backend, warning = _build_index(settings)
-    return Runtime(
-        registry=registry,
-        index=index,
-        ingest=IngestService(registry, index),
-        search=SearchService(index),
-        backend=backend,
-        warning=warning,
-    )
+    bundled_crossencoder = Path(__file__).resolve().parents[3] / "rerankers" / "crossencoder"
+    rerankers = RerankerRegistry(timeout_s=60, persistent_paths=[bundled_crossencoder])
+    try:
+        core = create_core(settings, base_dir=Path.cwd(), registry=registry,
+                           index=index, rerankers=rerankers)
+    except BaseException:
+        rerankers.close()
+        index.close()
+        raise
+    return Runtime(core=core, search=SearchService(index), backend=backend, warning=warning)
 
 
 def _print_issues(issues) -> None:
     for issue in issues:
         location = f" ({issue.source})" if issue.source else ""
         print(f"[{issue.code}] {issue.message}{location}", file=sys.stderr)
+
+
+def print_ingest_report(report, backend: str) -> None:
+    print(f"index: {backend}")
+    if isinstance(report, BatchIngestReport):
+        summary = report.as_dict()
+        print(f"发现 {summary['discovered']} 个文件，成功 {summary['succeeded']}，"
+              f"失败 {summary['failed']}（部分成功 {summary['partial']}），跳过 {summary['skipped']}。")
+        print(f"文档: {summary['document_count']}，新增 Chunk: {summary['chunks']}")
+        for row in report.files:
+            print(f"  {row['status']}  {row['connector'] or '-'}  {row['path']}"
+                  f"  文档={row['document_count']}  新增 Chunk={row['chunks']}")
+            for doc in row["documents"]:
+                version = doc.get("version")
+                state = "unchanged" if doc["status"] == "unchanged" else (
+                    "new_version" if version is not None and version > 1 else "indexed"
+                )
+                print(f"    {state}  {doc['source']}  v={version}  Chunk={doc['chunks']}")
+            for issue in row["issues"]:
+                print(f"    [{issue['code']}] {issue['message']}")
+        _print_issues(report.input_issues)
+        return
+
+    print(f"connector: {report.connector}")
+    print(f"documents: {len(report.documents)}")
+    print(f"chunks: {report.chunks}")
+    print(f"issues: {len(report.issues)}")
+    for document in report.documents:
+        print(
+            f"  + {document['source']}  {document['chunks']} chunks"
+            f"  doc_id={document['doc_id']}"
+        )
+    _print_issues(report.issues)
 
 
 def cmd_ingest(args: argparse.Namespace) -> int:
@@ -138,23 +209,11 @@ def cmd_ingest(args: argparse.Namespace) -> int:
         print(f"[WARN] {runtime.warning}", file=sys.stderr)
     options = {"mode": args.mode} if args.mode else {}
     report = runtime.ingest.ingest(args.source, args.path, options)
-
     if args.json:
         print(json.dumps(report.as_dict(), ensure_ascii=False, indent=2))
     else:
-        print(f"connector: {report.connector}")
-        print(f"index: {runtime.backend}")
-        print(f"documents: {len(report.documents)}")
-        print(f"chunks: {report.chunks}")
-        print(f"issues: {len(report.issues)}")
-        for document in report.documents:
-            print(
-                f"  + {document['source']}  {document['chunks']} chunks"
-                f"  doc_id={document['doc_id']}"
-            )
-        _print_issues(report.issues)
-
-    return 0 if report.documents else 2
+        print_ingest_report(report, runtime.backend)
+    return 0 if report.ok else 2
 
 
 def cmd_search(args: argparse.Namespace) -> int:
@@ -191,15 +250,17 @@ def cmd_docs(args: argparse.Namespace) -> int:
     if args.json:
         print(json.dumps(docs, ensure_ascii=False, indent=2))
         return 0
+    print_documents(docs)
+    return 0
+
+
+def print_documents(docs) -> None:
     if not docs:
         print("no documents")
-        return 0
+        return
     print(f"{'source':40} {'chunks':>6} {'pages':>6}  doc_id")
     for doc in docs:
-        print(
-            f"{doc['source']:40} {doc['chunks']:6} {doc['pages']:6}  {doc['doc_id']}"
-        )
-    return 0
+        print(f"{doc['source']:40} {doc['chunks']:6} {doc.get('pages', '-'):>6}  {doc['doc_id']}")
 
 
 def cmd_connectors_list(args: argparse.Namespace) -> int:
@@ -287,97 +348,51 @@ def _print_hits(hits) -> None:
 def cmd_ask(args: argparse.Namespace) -> int:
     settings = Settings.load(args.config)
     if args.provider:
+        if args.provider != settings.chat_provider:
+            settings.chat_base_url = ""
+            settings.chat_model = ""
         settings.chat_provider = args.provider
     if args.model:
         settings.chat_model = args.model
     if args.base_url:
         settings.chat_base_url = args.base_url
-    top_k = args.top_k or settings.rag_top_k
-
-    runtime = build_runtime(settings)
-    if runtime.warning:
-        print(f"[WARN] {runtime.warning}", file=sys.stderr)
-    hits = runtime.search.search(args.query, top_k=top_k, doc_ids=args.doc_id)
-
-    if args.no_generate:
-        if args.json:
-            print(json.dumps(hits, ensure_ascii=False, indent=2))
-        else:
-            _print_hits(hits)
-        return 0
-
-    if not hits:
-        if args.json:
-            print(json.dumps(
-                {"question": args.query, "answer": "没有检索到相关依据。",
-                 "citations": [], "hits": []},
-                ensure_ascii=False, indent=2,
-            ))
-        else:
-            print("没有检索到相关依据。")
-        return 0
-
-    if not settings.chat_provider:
-        print(
-            "[CONFIG_ERROR] 未配置 chat provider。运行 `rag-cli setup` 选择模型，"
-            "或用 --provider 指定；API Key 可用 `rag-cli keys set --provider "
-            "deepseek` 保存到本项目，也支持 export DEEPSEEK_API_KEY=... 临时注入。",
-            file=sys.stderr,
-        )
-        _print_hits(hits)
-        return 2
-
-    stream = bool(getattr(args, "stream", False)) and not args.json
-    on_token = None
-    if stream:
-        print("答案：")
-        sys.stdout.flush()
-        on_token = lambda token: print(token, end="", flush=True)  # noqa: E731
-
+    if getattr(args, "policy", None):
+        settings.rag_policy = args.policy
     try:
-        chat = build_chat_model(
-            settings.chat_provider,
-            model=settings.chat_model,
-            base_url=settings.chat_base_url,
-            temperature=settings.chat_temperature,
-            max_tokens=settings.chat_max_tokens,
-        )
-        result = answer_with_evidence(args.query, hits, chat, on_token=on_token)
+        with closing(build_runtime(settings)) as runtime:
+            if runtime.warning:
+                print(f"[WARN] {runtime.warning}", file=sys.stderr)
+            result = runtime.ask(settings, args.query, top_k=args.top_k,
+                                 doc_ids=args.doc_id, no_generate=args.no_generate)
+            backend = runtime.backend
+            model = getattr(runtime.core.chat, "model", "") or settings.chat_model
     except ValueError as exc:
         print(f"[CONFIG_ERROR] {exc}", file=sys.stderr)
         return 2
-    except RuntimeError as exc:
-        print(f"\n[LLM_ERROR] {exc}", file=sys.stderr)
-        return 2
 
-    if args.json:
-        print(json.dumps(
-            {
-                "question": args.query,
-                "provider": settings.chat_provider,
-                "model": chat.model,
-                "index_backend": runtime.backend,
-                **result,
-                "hits": hits,
-            },
-            ensure_ascii=False,
-            indent=2,
-        ))
-        return 0
-
-    if stream:
-        print()
+    trace = trace_summary(result, settings.rag_policy) if getattr(args, "trace", False) else None
+    if args.no_generate:
+        if args.json:
+            print(json.dumps(result["evidence"], ensure_ascii=False, indent=2))
+        else:
+            print_answer(result, _print_hits)
+        if trace is not None:
+            print_trace(trace, file=sys.stderr)
+    elif args.json:
+        output = {key: result[key] for key in ("status", "answer", "used_llm", "citations", "warnings")}
+        output.update(question=args.query, provider=settings.chat_provider,
+                      model=model, index_backend=backend,
+                      policy=settings.rag_policy, hits=result["evidence"])
+        if trace is not None:
+            output["trace"] = trace
+        print(json.dumps(output, ensure_ascii=False, indent=2))
     else:
-        print("答案：")
-        print(result["answer"])
-    print("\n来源：")
-    for citation in result["citations"]:
-        section = f" §{citation['section_path']}" if citation["section_path"] else ""
-        print(
-            f"[{citation['index']}] {citation['source']}"
-            f" p{citation['page']}{section}"
-        )
-    return 0
+        if args.stream and settings.chat_provider:
+            print("答案将在证据校验完成后整段显示。", file=sys.stderr)
+        print_answer(result, _print_hits)
+        if trace is not None:
+            print_trace(trace, file=sys.stderr)
+    return 2 if result["status"] in {"generation_failed", "retrieval_failed"} else 0
 
 
 def cmd_models_list(args: argparse.Namespace) -> int:
@@ -662,8 +677,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--config",
-        default="config.json",
-        help="配置文件路径（默认 config.json）",
+        default=os.environ.get("RAG_CONFIG", "config.json"),
+        help="配置文件路径（默认 RAG_CONFIG 或 config.json）",
     )
     parser.add_argument(
         "-p", "--print", dest="print_query", metavar="QUERY",
@@ -671,14 +686,17 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--provider", help="一次性提问的 chat provider")
     parser.add_argument("--model", help="一次性提问的模型名")
+    parser.add_argument("--policy", choices=tuple(recommended_policies()), help="一次性提问的 RAG 策略")
+    parser.add_argument("--trace", action="store_true", help="输出一次性提问的诊断摘要")
     parser.add_argument(
         "--no-stream", action="store_true", help="一次性提问时关闭流式输出"
     )
     sub = parser.add_subparsers(dest="command")
 
     ingest = sub.add_parser("ingest", help="导入 TXT/PDF/Markdown 等数据源")
-    ingest.add_argument("--source", required=True, help="Connector 名称，如 txt/pdf/connector.markdown")
-    ingest.add_argument("--path", required=True, help="文件或目录")
+    ingest.add_argument("--source", default="auto", help="auto 按后缀自动匹配，或指定 Connector 名称")
+    ingest.add_argument("--path", action="extend", nargs="+", required=True, metavar="PATH",
+                        help="文件或目录，可传多个，目录递归扫描；含空格的路径须加引号")
     ingest.add_argument("--mode", choices=["auto", "page", "region"], default=None, help="docparse 解析模式")
     ingest.add_argument("--json", action="store_true")
     add_config(ingest)
@@ -694,13 +712,15 @@ def build_parser() -> argparse.ArgumentParser:
 
     ask = sub.add_parser("ask", help="检索增强问答（检索 + LLM 生成 + 引用）")
     ask.add_argument("query")
-    ask.add_argument("--top-k", type=int, default=None)
+    ask.add_argument("--top-k", type=int, default=None, help="本次问答的证据数上限（Core 上限 6）")
     ask.add_argument("--doc-id", action="append", default=None, help="限定文档，可重复")
     ask.add_argument("--provider", help="chat provider，如 deepseek/dashscope/openai/ollama")
     ask.add_argument("--model", help="chat 模型名")
     ask.add_argument("--base-url", dest="base_url", help="覆盖 chat base URL")
     ask.add_argument("--no-generate", action="store_true", help="只返回检索证据，不调用 LLM")
-    ask.add_argument("--stream", action="store_true", help="流式打印答案")
+    ask.add_argument("--stream", action="store_true", help="兼容旧参数，答案在校验完成后显示")
+    ask.add_argument("--policy", choices=tuple(recommended_policies()), default=argparse.SUPPRESS)
+    ask.add_argument("--trace", action="store_true", default=argparse.SUPPRESS, help="输出诊断摘要")
     ask.add_argument("--json", action="store_true")
     add_config(ask)
     ask.set_defaults(func=cmd_ask)
@@ -830,7 +850,9 @@ def main(argv: list[str] | None = None) -> int:
             base_url=None,
             no_generate=False,
             json=False,
-            stream=not args.no_stream and sys.stdout.isatty(),
+            stream=False,
+            policy=args.policy,
+            trace=args.trace,
         )
         return cmd_ask(ask_args)
 
