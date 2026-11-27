@@ -1,0 +1,104 @@
+# Working-tree changes relative to HEAD; review deletions as document moves. NOT staged.
+M	.gitignore
+D	EXPANSION_PLAN.md
+D	RAG_EXECUTION_CHECKPOINT.md
+M	README.md
+D	docs/RAG_DESIGN_REVIEW.md
+D	docs/项目与对话整合记录.md
+M	project/README.md
+M	project/THIRD_PARTY.md
+M	project/connectors/connector_excel/README.md
+M	project/connectors/connector_excel/adapter.py
+M	project/connectors/connector_excel/manifest.json
+D	project/docs/A_PLUS_PROGRESS.md
+M	project/docs/DESIGN.docx
+M	project/docs/DESIGN.md
+D	project/docs/EXPANSION_PLAN.md
+D	project/docs/RAG_CHAT_TOKEN_BUDGET.md
+M	project/docs/RAG_CORE_API.md
+D	project/docs/RAG_EVALUATION.md
+D	project/docs/RAG_FINAL_DELIVERY.md
+D	project/docs/RAG_P0_IMPLEMENTATION_REPORT.md
+D	project/docs/RAG_P0_SUPPLEMENT_REPORT.md
+D	project/docs/RAG_P1_FINAL_FIX_REPORT.md
+D	project/docs/RAG_P1_IMPLEMENTATION_REPORT.md
+D	project/docs/RAG_P1_NATIVE_PDF_BBOX_FIX.md
+D	project/docs/RAG_P1_PLAN.md
+D	project/docs/RAG_P1_PROGRESS.md
+D	project/docs/RAG_P1_USER_QA_FIX.md
+D	project/docs/RAG_PERSONAL_ACCEPTANCE.md
+M	project/docs/RAG_PLUGIN_CONTRACTS.md
+M	project/docs/RAG_REQUIREMENTS_TRACEABILITY.md
+D	project/docs/RAG_RESOURCE_REUSE_REPORT.md
+D	project/docs/RAG_SERVICE_HANDOFF.md
+D	project/docs/ROADMAP.md
+M	project/docs/USAGE.md
+M	project/rerankers/crossencoder/README.md
+M	project/src/rag_multidocs/connectors/txt.py
+M	project/src/rag_multidocs/core.py
+M	project/src/rag_multidocs/index/contracts.py
+M	project/src/rag_multidocs/index/milvus.py
+M	project/src/rag_multidocs/index/milvus_store.py
+M	project/src/rag_multidocs/ingestion/service.py
+M	project/src/rag_multidocs/qa/calculations.py
+M	project/src/rag_multidocs/qa/grounding.py
+M	project/src/rag_multidocs/qa/llm.py
+M	project/src/rag_multidocs/qa/table_evidence.py
+M	project/src/rag_multidocs/qa/tasks.py
+M	project/src/rag_multidocs/retrieval/controller.py
+M	project/src/rag_multidocs/retrieval/profiles.py
+M	project/src/rag_multidocs/retrieval/rewrite.py
+M	project/src/rag_multidocs/retrieval/sources.py
+M	project/src/rag_multidocs/services.py
+M	project/tests/test_business_quality.py
+M	project/tests/test_core_entrypoints.py
+M	project/tests/test_delivery_question_scope.py
+M	project/tests/test_p0_budget_schema.py
+M	project/tests/test_p0_services_metrics.py
+M	project/tools/rag_extensions_acceptance.py
+M	release/RELEASE.md
+M	已有资源/README.md
+M	已有资源/文档/05-课程项目复用映射.md
+M	已有资源/文档/07-环境搭建与依赖.md
+
+# Untracked recommended paths
+project/docs/README.md
+project/docs/assets/architecture.png
+project/docs/assets/workflow.png
+project/docs/history/A_PLUS_PROGRESS.md
+project/docs/history/EXPANSION_PLAN.md
+project/docs/history/RAG_BASELINE_REUSE.md
+project/docs/history/RAG_CHAT_TOKEN_BUDGET.md
+project/docs/history/RAG_DESIGN_REVIEW.md
+project/docs/history/RAG_EVALUATION.md
+project/docs/history/RAG_EXECUTION_CHECKPOINT.md
+project/docs/history/RAG_FINAL_CLOSEOUT.md
+project/docs/history/RAG_FINAL_DELIVERY.md
+project/docs/history/RAG_P0_IMPLEMENTATION_REPORT.md
+project/docs/history/RAG_P0_SUPPLEMENT_REPORT.md
+project/docs/history/RAG_P1_FINAL_FIX_REPORT.md
+project/docs/history/RAG_P1_IMPLEMENTATION_REPORT.md
+project/docs/history/RAG_P1_NATIVE_PDF_BBOX_FIX.md
+project/docs/history/RAG_P1_PLAN.md
+project/docs/history/RAG_P1_PROGRESS.md
+project/docs/history/RAG_P1_USER_QA_FIX.md
+project/docs/history/RAG_PERSONAL_ACCEPTANCE.md
+project/docs/history/RAG_PURE_MILVUS_ACCEPTANCE.md
+project/docs/history/RAG_RESOURCE_REUSE_REPORT.md
+project/docs/history/RAG_SERVICE_HANDOFF.md
+project/docs/history/README.md
+project/docs/history/ROADMAP.md
+project/docs/history/ROOT_EXPANSION_PLAN.md
+project/docs/history/项目与对话整合记录.md
+project/docs/testing/DELIVERY_PREPARATION.md
+project/docs/testing/FINAL_ACCEPTANCE.md
+project/docs/testing/SUBMISSION_CHANGES.txt
+project/docs/testing/SUBMISSION_EXCLUDE.txt
+project/docs/testing/SUBMISSION_INCLUDE.txt
+project/samples/plugin-example.jsonl
+project/tests/test_context_fact_coverage.py
+project/tests/test_csv_connector.py
+project/tests/test_final_rag_path.py
+project/tests/test_natural_rag.py
+project/tests/test_pure_milvus_runtime.py
+project/tests/test_temporal_cells.py

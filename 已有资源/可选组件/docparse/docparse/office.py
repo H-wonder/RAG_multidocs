@@ -32,36 +32,35 @@ def _emit(blocks: list[Block], page_no: int, btype: str, content: str,
                         confidence=0.99, meta=meta or {}))
 
 
-def parse_docx(path: Path) -> Document:
-    import docx
-    from docx.table import Table
-    from docx.text.paragraph import Paragraph
+def structured_parse(path: Path, options: dict | None = None) -> dict:
+    """Public source-mapped Office service used by independent adapters."""
+    from . import office_structured
+    parsers = {".docx": office_structured.parse_docx, ".xlsx": office_structured.parse_xlsx}
+    path = Path(path)
+    return parsers[path.suffix.lower()]({"path": str(path), "options": dict(options or {})})
 
-    document = docx.Document(str(path))
-    doc = Document(path=str(path), sha256=sha256_file(path), doc_type="docx")
-    page = Page(number=1, kind="native")
-    blocks: list[Block] = []
 
-    body = document.element.body
-    for child in body.iterchildren():
-        tag = child.tag.rsplit("}", 1)[-1]
-        if tag == "p":
-            para = Paragraph(child, document)
-            text = para.text.strip()
-            if not text:
-                continue
-            style = (para.style.name or "") if para.style is not None else ""
-            btype = "title" if style.lower().startswith("heading") else "text"
-            _emit(blocks, 1, btype, text, meta={"style": style})
-        elif tag == "tbl":
-            table = Table(child, document)
-            rows = [[cell.text for cell in row.cells] for row in table.rows]
-            _emit(blocks, 1, "table", "", html=_table_html(rows))
-
-    page.blocks = blocks
-    page.mode = "native"
+def _structured_ir(path: Path, parsed: dict) -> Document:
+    doc = Document(path=str(path), sha256=sha256_file(path), doc_type=path.suffix[1:])
+    doc.meta.update(parsed.get("metadata", {}))
+    doc.meta.update({"title": parsed.get("title", path.stem), "page_semantics": "unpaginated_office"})
+    doc.warnings.extend(parsed.get("metadata", {}).get("warnings", []))
+    page = Page(number=0, kind="native", mode="native")
+    for row in parsed["blocks"]:
+        meta = dict(row.get("meta", {}))
+        for key in ["section_path", "level", "caption", "ocr_text", "origin", "ocr_mode", "needs_review"]:
+            if key in row:
+                meta[key] = row[key]
+        html = _table_html(meta["table_data"]["rows"]) if row["type"] == "table" else None
+        page.blocks.append(Block(id=row["id"], page=0, type=row["type"], bbox=[],
+             reading_order=row["reading_order"], content=row.get("content", ""), html=html,
+             source="native_office", meta=meta, warnings=row.get("warnings", [])))
     doc.pages.append(page)
     return doc
+
+
+def parse_docx(path: Path) -> Document:
+    return _structured_ir(Path(path), structured_parse(path))
 
 
 def parse_pptx(path: Path) -> Document:
@@ -86,28 +85,7 @@ def parse_pptx(path: Path) -> Document:
 
 
 def parse_xlsx(path: Path) -> Document:
-    import openpyxl
-
-    wb = openpyxl.load_workbook(str(path), read_only=True, data_only=True)
-    doc = Document(path=str(path), sha256=sha256_file(path), doc_type="xlsx")
-    try:
-        for i, sheet in enumerate(wb.worksheets, 1):
-            rows = [["" if c is None else str(c) for c in row]
-                    for row in sheet.iter_rows(values_only=True)]
-            rows = [r for r in rows if any(c.strip() for c in r)]
-            page = Page(number=i, kind="native", mode="native")
-            if rows:
-                page.blocks.append(Block(
-                    id=f"p{i}b0", page=i, type="table", bbox=[0, 0, 1000, 1000],
-                    reading_order=0, content="", html=_table_html(rows),
-                    source="native_office", confidence=0.99,
-                    meta={"sheet": sheet.title, "rows": len(rows)}))
-            page.warnings.append({"code": "sheet", "severity": "info",
-                                  "message": f"Sheet '{sheet.title}'"})
-            doc.pages.append(page)
-    finally:
-        wb.close()
-    return doc
+    return _structured_ir(Path(path), structured_parse(path))
 
 
 def parse_text(path: Path) -> Document:

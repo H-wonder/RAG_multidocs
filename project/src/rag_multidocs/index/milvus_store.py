@@ -17,6 +17,10 @@
 
 from __future__ import annotations
 
+import json
+import hashlib
+import base64
+import zlib
 from typing import Any, Callable, Iterable
 
 try:
@@ -50,6 +54,13 @@ OUTPUT_FIELDS = [
     "bbox",
     "source",
     "sha256",
+    "chunk_index",
+    "block_ids",
+    "ocr_mode",
+    "needs_review",
+    "origin",
+    "warnings",
+    "metadata",
 ]
 
 # 重排回调：给定查询和候选文本，返回按相关性排序的下标
@@ -69,11 +80,14 @@ class MilvusHybridIndex:
         dense_weight: float = 0.7,
         sparse_weight: float = 0.3,
         metric_type: str = "IP",
+        legacy_readonly: bool = False,
     ):
         if _IMPORT_ERROR is not None:
             raise RuntimeError(
                 "未安装 pymilvus；请先 pip install 'pymilvus>=2.5'"
             ) from _IMPORT_ERROR
+        self.legacy_readonly = legacy_readonly
+        self.available_fields = None
         self.embedder = embedder
         self.uri = uri
         self.db_name = db_name
@@ -109,11 +123,39 @@ class MilvusHybridIndex:
         """
         client = self.client()
         name = self.collection
+        from .contracts import model_identity
+
+        identity = (
+            "rag-pure-milvus-v1:"
+            + hashlib.sha256(
+                json.dumps(model_identity(self.embedder), sort_keys=True).encode()
+            ).hexdigest()
+        )
         if client.has_collection(name):
+            existing = client.describe_collection(name)
+            self.available_fields = {f["name"] for f in existing["fields"]}
+            if self.legacy_readonly:
+                dense = next(f for f in existing["fields"] if f["name"] == "dense")
+                if int(dense["params"]["dim"]) != self.embedder.dim:
+                    raise ValueError("INDEX_DIMENSION_MISMATCH")
+                return name
+            if existing.get("description") != identity:
+                raise ValueError(
+                    "INDEX_MODEL_MISMATCH: existing/legacy collection identity differs; choose a new collection"
+                )
+            dense = next(f for f in existing["fields"] if f["name"] == "dense")
+            if int(dense["params"]["dim"]) != self.embedder.dim:
+                raise ValueError("INDEX_DIMENSION_MISMATCH")
+            if not set(OUTPUT_FIELDS + ["id", "dense", "sparse"]) <= self.available_fields:
+                raise ValueError("INDEX_SCHEMA_MISMATCH")
             return name
 
+        if self.legacy_readonly:
+            raise ValueError("LEGACY_COLLECTION_NOT_FOUND")
         dim = int(self.embedder.dim)
-        schema = client.create_schema(auto_id=False, enable_dynamic_field=False)
+        schema = client.create_schema(
+            auto_id=False, enable_dynamic_field=False, description=identity
+        )
         schema.add_field("id", DataType.VARCHAR, is_primary=True, max_length=64)
         schema.add_field(
             "text",
@@ -124,11 +166,18 @@ class MilvusHybridIndex:
         )
         schema.add_field("doc_id", DataType.VARCHAR, max_length=64)
         schema.add_field("version", DataType.INT64)
+        schema.add_field("metadata", DataType.JSON)
         schema.add_field("content_type", DataType.VARCHAR, max_length=32)
         schema.add_field("section_path", DataType.VARCHAR, max_length=1024)
         schema.add_field("page", DataType.INT64)
         schema.add_field("page_end", DataType.INT64)
-        schema.add_field("bbox", DataType.VARCHAR, max_length=64)
+        schema.add_field("bbox", DataType.VARCHAR, max_length=256)
+        schema.add_field("chunk_index", DataType.INT64)
+        schema.add_field("block_ids", DataType.VARCHAR, max_length=4096)
+        schema.add_field("ocr_mode", DataType.VARCHAR, max_length=32)
+        schema.add_field("needs_review", DataType.BOOL)
+        schema.add_field("origin", DataType.VARCHAR, max_length=64)
+        schema.add_field("warnings", DataType.VARCHAR, max_length=8192)
         schema.add_field("source", DataType.VARCHAR, max_length=1024)
         schema.add_field("sha256", DataType.VARCHAR, max_length=64)
         schema.add_field("sparse", DataType.SPARSE_FLOAT_VECTOR)
@@ -161,13 +210,15 @@ class MilvusHybridIndex:
                 "bm25_b": 0.75,
             },
         )
-        client.create_collection(
-            collection_name=name, schema=schema, index_params=index_params
-        )
+        client.create_collection(collection_name=name, schema=schema, index_params=index_params)
         return name
 
     def ensure_ready(self) -> str:
-        self.ensure_database()
+        prepare = getattr(self.embedder, "prepare", None)
+        if prepare:
+            prepare()
+        if not self.legacy_readonly:
+            self.ensure_database()
         return self.ensure_collection()
 
     def close(self) -> None:
@@ -192,8 +243,13 @@ class MilvusHybridIndex:
         source: str = "",
         sha256: str = "",
         batch_size: int = 256,
+        replace_document: bool = True,
+        document_metadata: dict | None = None,
+        document_payload: dict | None = None,
     ) -> dict[str, Any]:
-        """按 doc_id 先删后插，保证重跑幂等。"""
+        """Replace one current document in Milvus; no catalog/version activation."""
+        if self.legacy_readonly:
+            raise ValueError("INDEX_READ_ONLY: explicit reingestion into a new collection required")
         rows_in = [self._as_dict(chunk) for chunk in chunks]
         rows_in = [row for row in rows_in if str(row.get("text", "")).strip()]
         if not rows_in:
@@ -204,17 +260,12 @@ class MilvusHybridIndex:
 
         # 向量输入带章节上下文：表格块只有数据、没有“这是哪一节”时，
         # 语义检索很难排上来。存进 Milvus 的仍是原文，只有向量看到前缀。
-        embed_inputs = [
-            f"{row.get('section_path')}\n{row['text']}"
-            if row.get("section_path")
-            else str(row["text"])
-            for row in rows_in
-        ]
+        from ..model import embedding_text
+
+        embed_inputs = [embedding_text(row) for row in rows_in]
         vectors = self.embedder.embed(embed_inputs, query=False)
         if len(vectors) != len(rows_in):
-            raise RuntimeError(
-                f"嵌入数量不匹配: {len(vectors)} != {len(rows_in)}"
-            )
+            raise RuntimeError(f"嵌入数量不匹配: {len(vectors)} != {len(rows_in)}")
 
         rows = [
             {
@@ -223,21 +274,80 @@ class MilvusHybridIndex:
                 "doc_id": doc_id,
                 "version": int(version),
                 "content_type": str(row.get("content_type", "text"))[:32],
-                "section_path": str(row.get("section_path", ""))[:1000],
+                "section_path": str(row.get("section_path", "")),
                 "page": int(row.get("page", 0) or 0),
                 "page_end": int(row.get("page_end", 0) or 0),
-                "bbox": str(row.get("bbox", ""))[:60],
-                "source": str(source or row.get("source", ""))[:1000],
+                "bbox": str(row.get("bbox", "")),
+                "origin": str(
+                    row.get("origin", row.get("metadata", {}).get("origin", "connector"))
+                ),
+                "warnings": json.dumps(
+                    row.get("warnings", row.get("metadata", {}).get("warnings", [])),
+                    ensure_ascii=False,
+                ),
+                "chunk_index": int(row.get("index", 0)),
+                "block_ids": json.dumps(row.get("block_ids", []), ensure_ascii=False),
+                "metadata": {**row.get("metadata", {}), "_document": dict(document_metadata or {})},
+                "ocr_mode": str(row.get("ocr_mode", row.get("metadata", {}).get("ocr_mode", ""))),
+                "needs_review": bool(
+                    row.get("needs_review", row.get("metadata", {}).get("needs_review", False))
+                ),
+                "source": str(source or row.get("source", "")),
                 "sha256": str(sha256)[:64],
                 "dense": vector,
             }
             for row, vector in zip(rows_in, vectors)
         ]
 
-        client.delete(collection_name=name, filter=f'doc_id == "{doc_id}"')
-        for start in range(0, len(rows), batch_size):
-            client.insert(name, rows[start : start + batch_size])
-        client.flush(name)
+        self.pack_document_metadata(rows, document_metadata or {}, document_payload)
+
+        limits = {
+            "id": 64,
+            "doc_id": 64,
+            "text": 8000,
+            "source": 1024,
+            "section_path": 1024,
+            "content_type": 32,
+            "bbox": 256,
+            "block_ids": 4096,
+            "ocr_mode": 32,
+            "sha256": 64,
+            "origin": 64,
+            "warnings": 8192,
+        }
+        if any(
+            len(str(row[k]).encode("utf8")) > limit for row in rows for k, limit in limits.items()
+        ):
+            raise ValueError("VARCHAR_BYTE_LIMIT: no silent truncation")
+        if any(len(row["text"].encode()) > 8000 for row in rows):
+            raise ValueError("chunk exceeds 8000 bytes")
+        if any(len(v) != self.embedder.dim for v in vectors):
+            raise ValueError("embedding dimension mismatch")
+        expression = f"doc_id == {json.dumps(doc_id)}"
+        if not replace_document:
+            expression += f" and version == {int(version)}"
+        old_rows = self.document_rows(doc_id, include_dense=True)
+        old_ids, new_ids = {r["id"] for r in old_rows}, {r["id"] for r in rows}
+        try:
+            for start in range(0, len(rows), batch_size):
+                client.upsert(name, rows[start:start + batch_size])
+            # Remove only rows left over from the replaced document, after the
+            # complete replacement is accepted. Embed/validation failures above
+            # cannot remove the old document.
+            stale = old_ids - new_ids
+            if stale:
+                client.delete(name, ids=sorted(stale))
+            client.flush(name)
+        except Exception:
+            # Recover ordinary write failures using the same Milvus records.
+            # This is not a crash-atomic multi-request transaction.
+            for start in range(0, len(old_rows), batch_size):
+                client.upsert(name, old_rows[start:start + batch_size])
+            added = new_ids - old_ids
+            if added:
+                client.delete(name, ids=sorted(added))
+            client.flush(name)
+            raise
         return {
             "doc_id": doc_id,
             "version": version,
@@ -245,7 +355,48 @@ class MilvusHybridIndex:
             "chunks": len(rows),
         }
 
+    @staticmethod
+    def pack_document_metadata(rows, metadata, payload):
+        encoded = (base64.b64encode(zlib.compress(json.dumps(payload, ensure_ascii=False).encode())).decode()
+                   if payload is not None else '')
+        pieces = [encoded[i:i + 8192] for i in range(0, len(encoded), 8192)]
+        if len(pieces) > len(rows):
+            raise ValueError('DOCUMENT_METADATA_EXCEEDS_CHUNK_CAPACITY')
+        checksum = hashlib.sha256(encoded.encode()).hexdigest()
+        for i, row in enumerate(sorted(rows, key=lambda r: r.get('chunk_index', 0))):
+            record = dict(metadata)
+            if i < len(pieces):
+                record['_payload'] = {'part': i, 'parts': len(pieces), 'data': pieces[i], 'sha256': checksum}
+            row['metadata'] = {**row.get('metadata', {}), '_document': record}
+
+    def update_document_metadata(self, doc_id, metadata, payload):
+        rows = self.document_rows(doc_id, include_dense=True)
+        self.pack_document_metadata(rows, metadata, payload)
+        for start in range(0, len(rows), 128):
+            self.client().upsert(self.collection, rows[start:start + 128])
+        self.client().flush(self.collection)
+
+    def document_rows(self, doc_id=None, *, include_dense=False):
+        fields = ["id"] + OUTPUT_FIELDS + (["dense"] if include_dense else [])
+        expr = f"doc_id == {json.dumps(doc_id)}" if doc_id is not None else ""
+        rows = []
+        iterator = self.client().query_iterator(self.collection, filter=expr,
+                                               output_fields=fields, batch_size=512,
+                                               consistency_level="Strong")
+        try:
+            while True:
+                batch = iterator.next()
+                if not batch:
+                    break
+                rows.extend({**row, **({"dense": list(row["dense"])} if include_dense else {})}
+                            for row in batch)
+        finally:
+            iterator.close()
+        return rows
+
     def delete(self, doc_id: str) -> dict[str, Any]:
+        if self.legacy_readonly:
+            raise ValueError("INDEX_READ_ONLY")
         client = self.client()
         if not client.has_collection(self.collection):
             return {"doc_id": doc_id, "deleted": False, "reason": "collection 不存在"}
@@ -254,6 +405,8 @@ class MilvusHybridIndex:
         return {"doc_id": doc_id, "deleted": True}
 
     def drop_collection(self) -> dict[str, Any]:
+        if self.legacy_readonly:
+            raise ValueError("INDEX_READ_ONLY")
         """删除整个集合。演示/测试清理用，生产环境慎用。"""
         client = self.client()
         existed = client.has_collection(self.collection)
@@ -289,6 +442,9 @@ class MilvusHybridIndex:
         fusion: str = "weighted",
         expand: ExpandFn | None = None,
         rerank: RerankFn | None = None,
+        filter_expr: str | None = None,
+        ann_limit: int | None = None,
+        timeout_s: float | None = None,
     ) -> dict[str, Any]:
         """混合检索：dense(IP) + 服务端 BM25，WeightedRanker 或 RRF 融合。
 
@@ -305,12 +461,16 @@ class MilvusHybridIndex:
 
         expanded = expand(question) if expand else ""
         queries = [q for q in (question, expanded) if q]
-        limit = max(top_k * 4, 20) if rerank else top_k * 4
+        limit = (
+            ann_limit if ann_limit is not None else (max(top_k * 4, 20) if rerank else top_k * 4)
+        )
+        if limit < top_k or limit > 10000:
+            raise ValueError("invalid ANN candidate limit")
 
-        expr = None
+        expr = filter_expr
         if doc_ids:
-            quoted = ", ".join(f'"{doc_id}"' for doc_id in doc_ids)
-            expr = f"doc_id in [{quoted}]"
+            clause = f"doc_id in {json.dumps(doc_ids)}"
+            expr = f"({expr}) and ({clause})" if expr else clause
 
         merged: dict[str, dict[str, Any]] = {}
         for text_query in queries:
@@ -318,7 +478,7 @@ class MilvusHybridIndex:
             dense_req = AnnSearchRequest(
                 data=[query_vector],
                 anns_field="dense",
-                param={"metric_type": self.metric_type, "params": {"ef": 64}},
+                param={"metric_type": self.metric_type, "params": {"ef": max(64, limit)}},
                 limit=limit,
                 expr=expr,
             )
@@ -340,7 +500,13 @@ class MilvusHybridIndex:
                 reqs=[dense_req, sparse_req],
                 ranker=ranker,
                 limit=limit,
-                output_fields=OUTPUT_FIELDS,
+                output_fields=[
+                    f
+                    for f in OUTPUT_FIELDS
+                    if self.available_fields is None or f in self.available_fields
+                ],
+                consistency_level="Strong",
+                **({"timeout": timeout_s} if timeout_s is not None else {}),
             )
             for rank, hit in enumerate(results[0] if results else []):
                 hit_id = hit.get("id")
@@ -361,6 +527,18 @@ class MilvusHybridIndex:
                         "section_path": entity.get("section_path"),
                         "source": entity.get("source"),
                         "text": entity.get("text"),
+                        **{
+                            key: entity.get(key)
+                            for key in [
+                                "chunk_index",
+                                "block_ids",
+                                "ocr_mode",
+                                "needs_review",
+                                "origin",
+                                "warnings",
+                                "metadata",
+                            ]
+                        },
                     }
 
         hits = sorted(merged.values(), key=lambda item: item["score"], reverse=True)

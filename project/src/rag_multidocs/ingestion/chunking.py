@@ -32,9 +32,7 @@ TABLE_ROW_SEP = " | "
 _CJK_RE = re.compile(r"[一-鿿]")
 _WORD_RE = re.compile(r"[A-Za-z0-9]+")
 _SENTENCE_END = re.compile(r"(?<=[。！？!?；;])")
-_SECTION_RE = re.compile(
-    r"^\s*(\d{1,2}(?:\.\d{1,2}){0,2})(?![\d.])[\s\.、]*[A-Za-z一-鿿]"
-)
+_SECTION_RE = re.compile(r"^\s*(\d{1,2}(?:\.\d{1,2}){0,2})(?![\d.])[\s\.、]*[A-Za-z一-鿿]")
 _NOT_HEADING = re.compile(r"(arxiv|doi|http|www\.|@|20\d{2}[-/年])", re.I)
 _HEADING_LEVELS = ((70, 1), (45, 2), (0, 3))
 
@@ -484,22 +482,28 @@ def chunk_docparse_ir(
             bbox = _union_bbox([box for _, box in paragraphs])
             for packed in pack_paragraphs([text for text, _ in paragraphs], options):
                 counter = _ir_chunk(
-                    document, chunks, counter, packed, "text", section,
-                    page_no, bbox, block_ids,
+                    document,
+                    chunks,
+                    counter,
+                    packed,
+                    "text",
+                    section,
+                    page_no,
+                    bbox,
+                    block_ids,
                 )
             paragraphs = []
             block_ids = []
 
-        for block in sorted(blocks, key=lambda b: (b.get("reading_order") or 0)):
+        for block in sorted(blocks, key=lambda b: b.get("reading_order") or 0):
             btype = block.get("type", "text")
             content = (block.get("content") or "").strip()
             html = (block.get("html") or "").strip()
             bbox = block.get("bbox") or [0, 0, 1000, 1000]
             bid = str(block.get("id", ""))
 
-            if (
-                _norm_text(content) in running
-                and not (btype == "title" and _SECTION_RE.match(content))
+            if _norm_text(content) in running and not (
+                btype == "title" and _SECTION_RE.match(content)
             ):
                 continue
 
@@ -515,8 +519,15 @@ def chunk_docparse_ir(
                 text = content or html
                 if text.strip():
                     counter = _ir_chunk(
-                        document, chunks, counter, text, "page_text",
-                        _section_path(heading_stack), page_no, bbox, [bid],
+                        document,
+                        chunks,
+                        counter,
+                        text,
+                        "page_text",
+                        _section_path(heading_stack),
+                        page_no,
+                        bbox,
+                        [bid],
                     )
                 continue
 
@@ -528,8 +539,15 @@ def chunk_docparse_ir(
                     continue
                 flush_paragraphs()
                 counter = _ir_chunk(
-                    document, chunks, counter, text, "table",
-                    _section_path(heading_stack), page_no, bbox, [bid],
+                    document,
+                    chunks,
+                    counter,
+                    text,
+                    "table",
+                    _section_path(heading_stack),
+                    page_no,
+                    bbox,
+                    [bid],
                 )
                 continue
 
@@ -537,8 +555,15 @@ def chunk_docparse_ir(
                 if content:
                     flush_paragraphs()
                     counter = _ir_chunk(
-                        document, chunks, counter, content, btype,
-                        _section_path(heading_stack), page_no, bbox, [bid],
+                        document,
+                        chunks,
+                        counter,
+                        content,
+                        btype,
+                        _section_path(heading_stack),
+                        page_no,
+                        bbox,
+                        [bid],
                     )
                 continue
 

@@ -23,6 +23,7 @@ import urllib.request
 from typing import Protocol, runtime_checkable
 
 from .presets import api_key, embedding_provider
+from ..execution import record, remaining
 
 _TOKEN_RE = re.compile(r"[A-Za-z0-9_]+|[一-鿿]")
 
@@ -31,8 +32,7 @@ _TOKEN_RE = re.compile(r"[A-Za-z0-9_]+|[一-鿿]")
 class Embedder(Protocol):
     dim: int
 
-    def embed(self, texts: list[str], query: bool = False) -> list[list[float]]:
-        ...
+    def embed(self, texts: list[str], query: bool = False) -> list[list[float]]: ...
 
 
 class SentenceTransformerEmbedder:
@@ -47,28 +47,94 @@ class SentenceTransformerEmbedder:
         dim: int = 512,
         device: str = "cpu",
         query_instruction: str = "为这个句子生成表示以用于检索相关文章：",
+        *,
+        local_files_only: bool = False,
+        revision: str | None = None,
     ):
         self.model_name = model_name
         self.dim = dim
         self.device = device
         self.query_instruction = query_instruction
+        self.local_files_only = local_files_only
+        self.revision = revision
         self._model = None
 
     def _load(self):
         if self._model is None:
             from sentence_transformers import SentenceTransformer
 
-            self._model = SentenceTransformer(self.model_name, device=self.device)
+            self._model = SentenceTransformer(
+                self.model_name,
+                device=self.device,
+                local_files_only=self.local_files_only,
+                revision=self.revision,
+            )
+            if self._model.get_sentence_embedding_dimension() != self.dim:
+                self._model = None
+                raise ValueError(
+                    "INDEX_DIMENSION_MISMATCH: model output differs from configured dim"
+                )
         return self._model
 
+    @property
+    def max_input_tokens(self):
+        return self._load().max_seq_length
+
+    def count_tokens(self, text):
+        return len(self._load().tokenizer.encode(text))
+
+    def prepare(self):
+        """Public, lazy initialization and configured-dimension validation."""
+        self._load()
+
+    def identity(self):
+        from pathlib import Path
+        import os
+
+        root = Path(self.model_name)
+        resolved_revision = self.revision
+        if not root.is_dir():
+            cache = Path(
+                os.environ.get("HF_HUB_CACHE", str(Path.home() / ".cache/huggingface/hub"))
+            )
+            model = cache / ("models--" + self.model_name.replace("/", "--"))
+            ref = model / "refs" / (self.revision or "main")
+            if ref.is_file():
+                resolved_revision = ref.read_text().strip()
+            root = model / "snapshots" / (resolved_revision or "__unknown__")
+        configs = {}
+        for name in (
+            "config.json",
+            "modules.json",
+            "sentence_bert_config.json",
+            "1_Pooling/config.json",
+            "tokenizer_config.json",
+        ):
+            file = root / name
+            if file.is_file():
+                configs[name] = hashlib.sha256(file.read_bytes()).hexdigest()
+        return {
+            "provider": type(self).__name__,
+            "model": self.model_name,
+            "dimension": self.dim,
+            "query_instruction": self.query_instruction,
+            "revision": resolved_revision,
+            "model_config_sha256": configs,
+            "normalize_embeddings": True,
+            "pooling": "sentence-transformers-model-config",
+        }
+
     def embed(self, texts: list[str], query: bool = False) -> list[list[float]]:
+        record("embedding_calls")
+        record("embedding_items", len(texts))
         if not texts:
             return []
         if query and self.query_instruction:
             texts = [self.query_instruction + text for text in texts]
-        vectors = self._load().encode(
-            texts, normalize_embeddings=True, batch_size=32
-        )
+        model = self._load()
+        if any(len(model.tokenizer.encode(text)) > model.max_seq_length for text in texts):
+            raise ValueError("EMBEDDING_INPUT_TOO_LONG: split input; no silent truncation")
+        vectors = model.encode(texts, normalize_embeddings=True, batch_size=32)
         return [vector.tolist() for vector in vectors]
 
 
@@ -124,17 +190,23 @@ class OpenAICompatibleEmbedder:
         last_error: Exception | None = None
         for attempt in range(self.retries):
             try:
-                with urllib.request.urlopen(request, timeout=self.timeout) as response:
+                timeout = remaining(self.timeout)
+                record("transport_attempts")
+                if attempt:
+                    record("transport_retries")
+                with urllib.request.urlopen(request, timeout=timeout) as response:
                     data = json.loads(response.read().decode("utf-8"))
                 rows = sorted(data["data"], key=lambda row: row.get("index", 0))
                 return [row["embedding"] for row in rows]
             except Exception as exc:  # 网络/限流/5xx 都按可重试处理
                 last_error = exc
                 if attempt + 1 < self.retries:
-                    time.sleep(1 + attempt)
+                    time.sleep(min(1 + attempt, remaining(self.timeout)))
         raise RuntimeError(f"嵌入请求失败: {last_error}") from last_error
 
     def embed(self, texts: list[str], query: bool = False) -> list[list[float]]:
+        record("embedding_calls")
+        record("embedding_items", len(texts))
         vectors: list[list[float]] = []
         for start in range(0, len(texts), self.batch_size):
             vectors.extend(self._post(texts[start : start + self.batch_size]))
@@ -152,6 +224,8 @@ class HashingEmbedder:
         self.dim = dim
 
     def embed(self, texts: list[str], query: bool = False) -> list[list[float]]:
+        record("embedding_calls")
+        record("embedding_items", len(texts))
         vectors: list[list[float]] = []
         for text in texts:
             vector = [0.0] * self.dim
@@ -170,6 +244,8 @@ def build_embedder(
     model: str = "",
     dim: int = 0,
     base_url: str = "",
+    *,
+    local_files_only: bool = False,
 ):
     """Construct an embedder from a provider preset; heavy deps are lazy.
 
@@ -182,7 +258,9 @@ def build_embedder(
     if provider.kind == "hashing":
         return HashingEmbedder(dim=dim)
     if provider.kind == "local":
-        return SentenceTransformerEmbedder(model_name=model, dim=dim)
+        return SentenceTransformerEmbedder(
+            model_name=model, dim=dim, local_files_only=local_files_only
+        )
     return OpenAICompatibleEmbedder(
         base_url=base_url or provider.base_url,
         api_key=api_key(provider),

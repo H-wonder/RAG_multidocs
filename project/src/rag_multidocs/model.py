@@ -135,6 +135,8 @@ class Chunk:
             "bbox": self.bbox,
             "block_ids": ",".join(self.block_ids),
             "metadata": dict(self.metadata),
+            "ocr_mode": self.metadata.get("ocr_mode", ""),
+            "needs_review": bool(self.metadata.get("needs_review", False)),
         }
 
     @classmethod
@@ -172,3 +174,71 @@ __all__ = [
     "sha256_text",
     "sha256_file",
 ]
+
+
+# Dictionary contracts are additive: existing Document/Chunk serialization stays compatible.
+def normalize_warning(value):
+    if not isinstance(value, dict):
+        return {"code": "PARSE_WARNING", "message": str(value), "severity": "warning"}
+    result = dict(value)
+    severity = str(result.get("severity", "warning"))
+    result["severity"] = {"high": "error", "medium": "warning", "low": "info"}.get(
+        severity, severity
+    )
+    if result["severity"] not in {"error", "warning", "info"}:
+        result["severity"] = "warning"
+    result.setdefault("code", "PARSE_WARNING")
+    result.setdefault("message", "")
+    return result
+
+
+def embedding_text(chunk):
+    """Derived retrieval view is separate from the original quoted body."""
+    return "\n".join(str(v) for v in [chunk.get("section_path"), chunk["text"], chunk.get("metadata", {}).get("retrieval_text")] if v)
+
+
+def normalize_hit(value):
+    """Public Core hit/citation conventions; keep raw Index v1 serialization intact."""
+    import json
+    import math
+
+    result = dict(value)
+    metadata = result.get("metadata", {})
+    for key in ["location", "table_data", "table_headers", "semantic_cells", "retrieval_text", "source_table_id", "origin", "reading_order", "warnings", "needs_review"]:
+        if key not in result and key in metadata:
+            result[key] = metadata[key]
+    ids = result.get("block_ids") or []
+    result["block_ids"] = list(
+        dict.fromkeys(str(i) for i in (ids.split(",") if isinstance(ids, str) else ids) if i)
+    )
+    result["page"] = int(result.get("page") or 0)
+    result["page_end"] = int(result.get("page_end") or result["page"])
+    if result["page"] < 0 or result["page_end"] < result["page"]:
+        raise ValueError("INVALID_PAGE_RANGE")
+    bbox = result.get("bbox")
+    if bbox:
+        box = json.loads(bbox) if isinstance(bbox, str) else bbox
+        if (
+            not isinstance(box, (list, tuple))
+            or len(box) != 4
+            or any(
+                type(x) not in (int, float) or not math.isfinite(x) or not 0 <= x <= 1000
+                for x in box
+            )
+            or box[0] > box[2]
+            or box[1] > box[3]
+        ):
+            raise ValueError("INVALID_BBOX: expected normalized [x0,y0,x1,y1] in 0..1000")
+        result["bbox"] = json.dumps(box)
+    else:
+        result["bbox"] = ""
+    warnings = result.get("warnings") or []
+    if isinstance(warnings, str):
+        warnings = json.loads(warnings)
+    if not isinstance(warnings, list):
+        raise ValueError("INVALID_WARNINGS")
+    result["warnings"] = [normalize_warning(w) for w in warnings]
+    result["ocr_mode"] = result.get("ocr_mode") or ""
+    result["needs_review"] = bool(result.get("needs_review", False))
+    result.setdefault("content_type", "text")
+    return result

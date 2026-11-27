@@ -1,3 +1,5 @@
+import json
+
 from rag_multidocs.cli import main
 from rag_multidocs.config import Settings
 
@@ -89,18 +91,21 @@ def test_cli_ask_with_fake_chat_model(tmp_path, project_root, capsys, monkeypatc
         model = "fake-chat"
 
         def complete(self, messages):
-            return "检索器负责取回段落 [1]。"
+            quote = "检索增强生成需要检索器和生成器。"
+            return json.dumps({"status": "answered", "claims": [
+                {"text": quote, "citation_ids": [1], "supporting_quotes": [quote]},
+            ]}, ensure_ascii=False)
 
     monkeypatch.setattr(
-        "rag_multidocs.cli.app.build_chat_model",
-        lambda *args, **kwargs: FakeChat(),
+        "rag_multidocs.cli.app.configured_chat",
+        lambda settings, **kwargs: FakeChat(),
     )
     code = main(
         ["ask", "检索器", "--provider", "deepseek", "--config", str(config)]
     )
     out = capsys.readouterr().out
     assert code == 0
-    assert "答案" in out and "[1]" in out
+    assert "状态 answered" in out and "[1]" in out
     assert "notes.txt" in out
 
 
@@ -150,7 +155,7 @@ def test_models_use_can_disable_chat(tmp_path, project_root, capsys):
     assert settings.chat_model == ""
 
 
-def test_cli_ask_requires_chat_provider(tmp_path, project_root, capsys):
+def test_cli_ask_without_chat_provider_returns_retrieval_only(tmp_path, project_root, capsys):
     config = _config(tmp_path, project_root)
     txt = tmp_path / "notes.txt"
     txt.write_text("检索增强生成需要检索器和生成器。", encoding="utf-8")
@@ -159,8 +164,8 @@ def test_cli_ask_requires_chat_provider(tmp_path, project_root, capsys):
 
     code = main(["ask", "检索器", "--config", str(config)])
     captured = capsys.readouterr()
-    assert code == 2
-    assert "CONFIG_ERROR" in captured.err
+    assert code == 0
+    assert "状态 retrieval_only" in captured.out
     assert "notes.txt" in captured.out
 
 

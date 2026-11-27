@@ -114,6 +114,7 @@ class DocparseOptions:
     mode: str = os.environ.get("DOCPARSE_MODE", "auto")  # auto | page | region
     timeout_s: int = int(os.environ.get("DOCPARSE_TIMEOUT_S", "1800"))
     extra_args: tuple[str, ...] = ()
+    ocr_hybrid_images: bool = False
 
 
 class DocparseConnector:
@@ -146,7 +147,7 @@ class DocparseConnector:
         if not self.available():
             raise DocparseUnavailable(
                 f"docparse 不可用：repo={self.options.repo!r}；"
-                "请指向含 docparse/ 包的目录并安装其依赖"
+                "请用 DOCPARSE_REPO 指向含 docparse/ 包的目录"
             )
 
         out = Path(outdir)
@@ -169,6 +170,7 @@ class DocparseConnector:
             **os.environ,
             "PYTHONPATH": self.options.repo,
             "TOKENIZERS_PARALLELISM": "false",
+            "DOCPARSE_HYBRID_OCR": "1" if self.options.ocr_hybrid_images else "0",
         }
         started = time.time()
         try:
@@ -180,6 +182,8 @@ class DocparseConnector:
                 text=True,
                 timeout=self.options.timeout_s,
             )
+        except FileNotFoundError as exc:
+            raise DocparseUnavailable("解析解释器不可用，请用 DOCPARSE_PYTHON 指向已有文档环境的 Python") from exc
         except subprocess.TimeoutExpired as exc:
             raise DocparseError(
                 f"docparse 超过 {self.options.timeout_s}s 未完成"
@@ -330,6 +334,7 @@ def load(payload: dict[str, Any], context: dict[str, Any] | None = None) -> Conn
             python=str(python),
             mode=str(mode),
             timeout_s=timeout_s,
+            ocr_hybrid_images=bool(options.get("ocr_hybrid_images", False)),
         )
     )
     config = ConnectorConfig(

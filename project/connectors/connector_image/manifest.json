@@ -1,0 +1,24 @@
+{
+  "name": "connector.image",
+  "kind": "connector",
+  "version": "1.0.0",
+  "contract_version": "1",
+  "entry": "adapter:load",
+  "enabled": true,
+  "requires": [
+    "Pillow>=9.0"
+  ],
+  "description": "Independent PNG/JPEG OCR via existing docparse CLI",
+  "input_schema": {
+    "type": "object",
+    "required": [
+      "path"
+    ]
+  },
+  "file_extensions": [
+    ".png",
+    ".jpg",
+    ".jpeg"
+  ],
+  "auto_priority": 0
+}

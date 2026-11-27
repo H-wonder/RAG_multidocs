@@ -1,0 +1,376 @@
+{
+  "description": "Separate 12 seen OCR/source/version/numeric development challenges; all retained regardless of outcome. Requires rag_ocr_acceptance completed state, including PNG version2 319.40 CNY. Never merged into original60 metrics. No independent human heldout.",
+  "label_status": "PENDING_HUMAN",
+  "cases": [
+    {
+      "id": "c01",
+      "question": "在scanned.pdf中，采购单金额是多少？",
+      "reference_answer": "246.80 CNY",
+      "expected_evidence": [
+        {
+          "source": "scanned.pdf",
+          "page": 1,
+          "contains": "246.80"
+        }
+      ],
+      "answerable": true,
+      "category": "ocr_numeric",
+      "source_allowlist": [
+        "native.pdf",
+        "scanned.pdf",
+        "multi_scanned.pdf",
+        "mixed_pages.pdf",
+        "hybrid.pdf",
+        "bad_layer.pdf",
+        "bilingual.png",
+        "bilingual.jpg"
+      ],
+      "required_subquestions": [
+        "在scanned.pdf中，采购单金额是多少"
+      ],
+      "split": "challenge_development",
+      "annotation_status": "PENDING_HUMAN; authored fields and original page visual check; not model answers"
+    },
+    {
+      "id": "c02",
+      "question": "native.pdf原生文档中的金额是多少？",
+      "reference_answer": "75.25 CNY",
+      "expected_evidence": [
+        {
+          "source": "native.pdf",
+          "page": 1,
+          "contains": "75.25"
+        }
+      ],
+      "answerable": true,
+      "category": "similar_numeric",
+      "source_allowlist": [
+        "native.pdf",
+        "scanned.pdf",
+        "multi_scanned.pdf",
+        "mixed_pages.pdf",
+        "hybrid.pdf",
+        "bad_layer.pdf",
+        "bilingual.png",
+        "bilingual.jpg"
+      ],
+      "required_subquestions": [
+        "native.pdf原生文档中的金额是多少"
+      ],
+      "split": "challenge_development",
+      "annotation_status": "PENDING_HUMAN; authored fields and original page visual check; not model answers"
+    },
+    {
+      "id": "c03",
+      "question": "multi_scanned.pdf设备说明中的保修期是多少个月？",
+      "reference_answer": "36个月",
+      "expected_evidence": [
+        {
+          "source": "multi_scanned.pdf",
+          "page": 2,
+          "contains": "36 months"
+        }
+      ],
+      "answerable": true,
+      "category": "cross_language",
+      "source_allowlist": [
+        "native.pdf",
+        "scanned.pdf",
+        "multi_scanned.pdf",
+        "mixed_pages.pdf",
+        "hybrid.pdf",
+        "bad_layer.pdf",
+        "bilingual.png",
+        "bilingual.jpg"
+      ],
+      "required_subquestions": [
+        "multi_scanned.pdf设备说明中的保修期是多少个月"
+      ],
+      "split": "challenge_development",
+      "annotation_status": "PENDING_HUMAN; authored fields and original page visual check; not model answers"
+    },
+    {
+      "id": "c04",
+      "question": "native.pdf中的保修期是多少？multi_scanned.pdf中的保修期是多少？",
+      "reference_answer": "48个月；36个月",
+      "expected_evidence": [
+        {
+          "source": "native.pdf",
+          "page": 1,
+          "contains": "48 months"
+        },
+        {
+          "source": "multi_scanned.pdf",
+          "page": 2,
+          "contains": "36 months"
+        }
+      ],
+      "answerable": true,
+      "category": "cross_document",
+      "source_allowlist": [
+        "native.pdf",
+        "scanned.pdf",
+        "multi_scanned.pdf",
+        "mixed_pages.pdf",
+        "hybrid.pdf",
+        "bad_layer.pdf",
+        "bilingual.png",
+        "bilingual.jpg"
+      ],
+      "required_subquestions": [
+        "native.pdf中的保修期是多少",
+        "multi_scanned.pdf中的保修期是多少"
+      ],
+      "split": "challenge_development",
+      "annotation_status": "PENDING_HUMAN; authored fields and original page visual check; not model answers"
+    },
+    {
+      "id": "c05",
+      "question": "hybrid.pdf的原生文本金额是多少？其中采购单图片的金额是多少？",
+      "reference_answer": "75.25 CNY；246.80 CNY",
+      "expected_evidence": [
+        {
+          "source": "hybrid.pdf",
+          "page": 1,
+          "contains": "75.25"
+        },
+        {
+          "source": "hybrid.pdf",
+          "page": 1,
+          "contains": "246.80"
+        }
+      ],
+      "answerable": true,
+      "category": "hybrid_multi_fact",
+      "source_allowlist": [
+        "native.pdf",
+        "scanned.pdf",
+        "multi_scanned.pdf",
+        "mixed_pages.pdf",
+        "hybrid.pdf",
+        "bad_layer.pdf",
+        "bilingual.png",
+        "bilingual.jpg"
+      ],
+      "required_subquestions": [
+        "hybrid.pdf的原生文本金额是多少",
+        "其中采购单图片的金额是多少"
+      ],
+      "split": "challenge_development",
+      "annotation_status": "PENDING_HUMAN; authored fields and original page visual check; not model answers"
+    },
+    {
+      "id": "c06",
+      "question": "scanned.pdf中Accuracy与Amount分别是多少？",
+      "reference_answer": "93.5%；246.80 CNY",
+      "expected_evidence": [
+        {
+          "source": "scanned.pdf",
+          "page": 1,
+          "contains": "93.5%"
+        },
+        {
+          "source": "scanned.pdf",
+          "page": 1,
+          "contains": "246.80"
+        }
+      ],
+      "answerable": true,
+      "category": "metric_unit_confusion",
+      "source_allowlist": [
+        "native.pdf",
+        "scanned.pdf",
+        "multi_scanned.pdf",
+        "mixed_pages.pdf",
+        "hybrid.pdf",
+        "bad_layer.pdf",
+        "bilingual.png",
+        "bilingual.jpg"
+      ],
+      "required_subquestions": [
+        "scanned.pdf中Accuracy与Amount分别是多少"
+      ],
+      "split": "challenge_development",
+      "annotation_status": "PENDING_HUMAN; authored fields and original page visual check; not model answers"
+    },
+    {
+      "id": "c07",
+      "question": "bad_layer.pdf中采购单编号和日期是什么？",
+      "reference_answer": "SCAN-A1；2026-11-25",
+      "expected_evidence": [
+        {
+          "source": "bad_layer.pdf",
+          "page": 1,
+          "contains": "SCAN-A1"
+        },
+        {
+          "source": "bad_layer.pdf",
+          "page": 1,
+          "contains": "2026-11-25"
+        }
+      ],
+      "answerable": true,
+      "category": "broken_text_layer",
+      "source_allowlist": [
+        "native.pdf",
+        "scanned.pdf",
+        "multi_scanned.pdf",
+        "mixed_pages.pdf",
+        "hybrid.pdf",
+        "bad_layer.pdf",
+        "bilingual.png",
+        "bilingual.jpg"
+      ],
+      "required_subquestions": [
+        "bad_layer.pdf中采购单编号和日期是什么"
+      ],
+      "split": "challenge_development",
+      "annotation_status": "PENDING_HUMAN; authored fields and original page visual check; not model answers"
+    },
+    {
+      "id": "c08",
+      "question": "multi_scanned.pdf中设备每天开放多久？费用是多少？",
+      "reference_answer": "24小时；0 CNY",
+      "expected_evidence": [
+        {
+          "source": "multi_scanned.pdf",
+          "page": 2,
+          "contains": "每天24小时"
+        },
+        {
+          "source": "multi_scanned.pdf",
+          "page": 2,
+          "contains": "0 CNY"
+        }
+      ],
+      "answerable": true,
+      "category": "multi_page_numeric",
+      "source_allowlist": [
+        "native.pdf",
+        "scanned.pdf",
+        "multi_scanned.pdf",
+        "mixed_pages.pdf",
+        "hybrid.pdf",
+        "bad_layer.pdf",
+        "bilingual.png",
+        "bilingual.jpg"
+      ],
+      "required_subquestions": [
+        "multi_scanned.pdf中设备每天开放多久",
+        "费用是多少"
+      ],
+      "split": "challenge_development",
+      "annotation_status": "PENDING_HUMAN; authored fields and original page visual check; not model answers"
+    },
+    {
+      "id": "c09",
+      "question": "这些文档给出的2029年保修政策是什么？",
+      "reference_answer": "证据不足",
+      "expected_evidence": [],
+      "answerable": false,
+      "category": "outside_year",
+      "source_allowlist": [
+        "native.pdf",
+        "scanned.pdf",
+        "multi_scanned.pdf",
+        "mixed_pages.pdf",
+        "hybrid.pdf",
+        "bad_layer.pdf",
+        "bilingual.png",
+        "bilingual.jpg"
+      ],
+      "required_subquestions": [
+        "这些文档给出的2029年保修政策是什么"
+      ],
+      "split": "challenge_development",
+      "annotation_status": "PENDING_HUMAN; authored fields and original page visual check; not model answers"
+    },
+    {
+      "id": "c10",
+      "question": "scanned.pdf中Screw的数量和金额分别是多少？",
+      "reference_answer": "5；20.50 CNY",
+      "expected_evidence": [
+        {
+          "source": "scanned.pdf",
+          "page": 1,
+          "contains": "5 20.50 CNY"
+        }
+      ],
+      "answerable": true,
+      "category": "scan_row_relation",
+      "source_allowlist": [
+        "native.pdf",
+        "scanned.pdf",
+        "multi_scanned.pdf",
+        "mixed_pages.pdf",
+        "hybrid.pdf",
+        "bad_layer.pdf",
+        "bilingual.png",
+        "bilingual.jpg"
+      ],
+      "required_subquestions": [
+        "scanned.pdf中Screw的数量和金额分别是多少"
+      ],
+      "split": "challenge_development",
+      "annotation_status": "PENDING_HUMAN; authored fields and original page visual check; not model answers"
+    },
+    {
+      "id": "c11",
+      "question": "bilingual.png当前版本金额是多少？bilingual.jpg金额是多少？",
+      "reference_answer": "319.40 CNY；246.80 CNY",
+      "expected_evidence": [
+        {
+          "source": "bilingual.png",
+          "page": 1,
+          "contains": "319.40"
+        },
+        {
+          "source": "bilingual.jpg",
+          "page": 1,
+          "contains": "246.80"
+        }
+      ],
+      "answerable": true,
+      "category": "version_source_confusion",
+      "source_allowlist": [
+        "native.pdf",
+        "scanned.pdf",
+        "multi_scanned.pdf",
+        "mixed_pages.pdf",
+        "hybrid.pdf",
+        "bad_layer.pdf",
+        "bilingual.png",
+        "bilingual.jpg"
+      ],
+      "required_subquestions": [
+        "bilingual.png当前版本金额是多少",
+        "bilingual.jpg金额是多少"
+      ],
+      "split": "challenge_development",
+      "annotation_status": "PENDING_HUMAN; authored fields and original page visual check; not model answers"
+    },
+    {
+      "id": "c12",
+      "question": "scanned.pdf中采购单的税率是多少？",
+      "reference_answer": "证据不足，Accuracy并不是税率",
+      "expected_evidence": [],
+      "answerable": false,
+      "category": "outside_metric",
+      "source_allowlist": [
+        "native.pdf",
+        "scanned.pdf",
+        "multi_scanned.pdf",
+        "mixed_pages.pdf",
+        "hybrid.pdf",
+        "bad_layer.pdf",
+        "bilingual.png",
+        "bilingual.jpg"
+      ],
+      "required_subquestions": [
+        "scanned.pdf中采购单的税率是多少"
+      ],
+      "split": "challenge_development",
+      "annotation_status": "PENDING_HUMAN; authored fields and original page visual check; not model answers"
+    }
+  ]
+}

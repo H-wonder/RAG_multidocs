@@ -1,12 +1,14 @@
 {
   "name": "pdf",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "PDF/扫描件/图片/Office，经 docparse 子进程解析为统一文档模型",
   "entry": "adapter:load",
   "enabled": true,
   "input_schema": {
     "type": "object",
-    "required": ["path"],
+    "required": [
+      "path"
+    ],
     "properties": {
       "path": {
         "type": "string",
@@ -21,5 +23,19 @@
   "output_schema": {
     "type": "object",
     "description": "ConnectorResult：documents + issues；Document.metadata.docparse_ir 供核心结构化切块"
-  }
+  },
+  "file_extensions": [
+    ".pdf",
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".tif",
+    ".tiff",
+    ".bmp",
+    ".webp",
+    ".docx",
+    ".pptx",
+    ".xlsx"
+  ],
+  "auto_priority": -10
 }

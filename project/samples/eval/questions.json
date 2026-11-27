@@ -1,0 +1,564 @@
+{
+  "description": "30 source-grounded draft annotations; no experiment target is claimed achieved; AI annotations require teammate review",
+  "cases": [
+    {
+      "id": "q01",
+      "category": "fact",
+      "split": "dev",
+      "question": "本科生借阅期限是多少天？",
+      "reference_answer": "30天",
+      "answerable": true,
+      "expected_evidence": [
+        {
+          "source": "campus-faq.txt",
+          "page": 0,
+          "contains": "本科生 30 天"
+        }
+      ],
+      "required_subquestions": [
+        "本科生借阅期限是多少天？"
+      ],
+      "annotation_status": "source-inspected; teammate review pending"
+    },
+    {
+      "id": "q02",
+      "category": "fact",
+      "split": "dev",
+      "question": "研究生借阅期限是多少天？",
+      "reference_answer": "60天",
+      "answerable": true,
+      "expected_evidence": [
+        {
+          "source": "campus-faq.txt",
+          "page": 0,
+          "contains": "研究生 60 天"
+        }
+      ],
+      "required_subquestions": [
+        "研究生借阅期限是多少天？"
+      ],
+      "annotation_status": "source-inspected; teammate review pending"
+    },
+    {
+      "id": "q03",
+      "category": "fact",
+      "split": "dev",
+      "question": "图书可以续借几次？",
+      "reference_answer": "一次",
+      "answerable": true,
+      "expected_evidence": [
+        {
+          "source": "campus-faq.txt",
+          "page": 0,
+          "contains": "可续借一次"
+        }
+      ],
+      "required_subquestions": [
+        "图书可以续借几次？"
+      ],
+      "annotation_status": "source-inspected; teammate review pending"
+    },
+    {
+      "id": "q04",
+      "category": "fact",
+      "split": "test",
+      "question": "自助还书机每天可以用多久？",
+      "reference_answer": "24小时",
+      "answerable": true,
+      "expected_evidence": [
+        {
+          "source": "library-hours.txt",
+          "page": 0,
+          "contains": "24 小时"
+        }
+      ],
+      "required_subquestions": [
+        "自助还书机每天可以用多久？"
+      ],
+      "annotation_status": "source-inspected; teammate review pending"
+    },
+    {
+      "id": "q05",
+      "category": "fact",
+      "split": "test",
+      "question": "馆际互借通常多久到馆？",
+      "reference_answer": "3个工作日",
+      "answerable": true,
+      "expected_evidence": [
+        {
+          "source": "library-hours.txt",
+          "page": 0,
+          "contains": "3 个工作日"
+        }
+      ],
+      "required_subquestions": [
+        "馆际互借通常多久到馆？"
+      ],
+      "annotation_status": "source-inspected; teammate review pending"
+    },
+    {
+      "id": "q06",
+      "category": "fact",
+      "split": "test",
+      "question": "馆际互借在哪里申请？",
+      "reference_answer": "总服务台",
+      "answerable": true,
+      "expected_evidence": [
+        {
+          "source": "library-services.html",
+          "page": 0,
+          "contains": "总服务台"
+        }
+      ],
+      "required_subquestions": [
+        "馆际互借在哪里申请？"
+      ],
+      "annotation_status": "source-inspected; teammate review pending"
+    },
+    {
+      "id": "q07",
+      "category": "fact",
+      "split": "test",
+      "question": "馆际互借需要提供哪些信息？",
+      "reference_answer": "书名、ISBN和借阅人学号",
+      "answerable": true,
+      "expected_evidence": [
+        {
+          "source": "library-services.html",
+          "page": 0,
+          "contains": "ISBN"
+        }
+      ],
+      "required_subquestions": [
+        "馆际互借需要提供哪些信息？"
+      ],
+      "annotation_status": "source-inspected; teammate review pending"
+    },
+    {
+      "id": "q08",
+      "category": "fact",
+      "split": "test",
+      "question": "最终提交什么格式的文件？",
+      "reference_answer": "一个ZIP",
+      "answerable": true,
+      "expected_evidence": [
+        {
+          "source": "course-project-guide.pdf",
+          "page": 1,
+          "contains": "ZIP"
+        }
+      ],
+      "required_subquestions": [
+        "最终提交什么格式的文件？"
+      ],
+      "annotation_status": "source-inspected; teammate review pending"
+    },
+    {
+      "id": "q09",
+      "category": "explain",
+      "split": "dev",
+      "question": "检索器的作用是什么？",
+      "reference_answer": "从外部知识库取回相关段落",
+      "answerable": true,
+      "expected_evidence": [
+        {
+          "source": "rag-basics.md",
+          "page": 0,
+          "contains": "外部知识库"
+        }
+      ],
+      "required_subquestions": [
+        "检索器的作用是什么？"
+      ],
+      "annotation_status": "source-inspected; teammate review pending"
+    },
+    {
+      "id": "q10",
+      "category": "explain",
+      "split": "dev",
+      "question": "为什么切块需要保留表格边界？",
+      "reference_answer": "避免硬切把表格行拆断",
+      "answerable": true,
+      "expected_evidence": [
+        {
+          "source": "rag-basics.md",
+          "page": 0,
+          "contains": "一行数据切成两半"
+        }
+      ],
+      "required_subquestions": [
+        "为什么切块需要保留表格边界？"
+      ],
+      "annotation_status": "source-inspected; teammate review pending"
+    },
+    {
+      "id": "q11",
+      "category": "explain",
+      "split": "test",
+      "question": "没有证据时应该如何回答？",
+      "reference_answer": "明确拒答，不能编造来源",
+      "answerable": true,
+      "expected_evidence": [
+        {
+          "source": "rag-basics.md",
+          "page": 0,
+          "contains": "没有证据"
+        }
+      ],
+      "required_subquestions": [
+        "没有证据时应该如何回答？"
+      ],
+      "annotation_status": "source-inspected; teammate review pending"
+    },
+    {
+      "id": "q12",
+      "category": "explain",
+      "split": "test",
+      "question": "为什么切换embedding模型要新建集合？",
+      "reference_answer": "不能混用不同维度向量",
+      "answerable": true,
+      "expected_evidence": [
+        {
+          "source": "lab-guide.md",
+          "page": 0,
+          "contains": "不能混用不同维度"
+        }
+      ],
+      "required_subquestions": [
+        "为什么切换embedding模型要新建集合？"
+      ],
+      "annotation_status": "source-inspected; teammate review pending"
+    },
+    {
+      "id": "q13",
+      "category": "explain",
+      "split": "test",
+      "question": "为什么独立扩展不能依赖核心内部实现？",
+      "reference_answer": "公开契约实现独立接入，无需改核心源码",
+      "answerable": true,
+      "expected_evidence": [
+        {
+          "source": "course-project-guide.pdf",
+          "page": 1,
+          "contains": "核心源码保持不变"
+        }
+      ],
+      "required_subquestions": [
+        "为什么独立扩展不能依赖核心内部实现？"
+      ],
+      "annotation_status": "source-inspected; teammate review pending"
+    },
+    {
+      "id": "q14",
+      "category": "numeric",
+      "split": "dev",
+      "question": "逾期费用每天每本是多少元？",
+      "reference_answer": "0.2元",
+      "answerable": true,
+      "expected_evidence": [
+        {
+          "source": "campus-faq.txt",
+          "page": 0,
+          "contains": "0.2 元"
+        }
+      ],
+      "required_subquestions": [
+        "逾期费用每天每本是多少元？"
+      ],
+      "annotation_status": "source-inspected; teammate review pending"
+    },
+    {
+      "id": "q15",
+      "category": "numeric",
+      "split": "test",
+      "question": "单本图书逾期费用封顶多少元？",
+      "reference_answer": "20元",
+      "answerable": true,
+      "expected_evidence": [
+        {
+          "source": "campus-faq.txt",
+          "page": 0,
+          "contains": "20 元"
+        }
+      ],
+      "required_subquestions": [
+        "单本图书逾期费用封顶多少元？"
+      ],
+      "annotation_status": "source-inspected; teammate review pending"
+    },
+    {
+      "id": "q16",
+      "category": "numeric",
+      "split": "test",
+      "question": "研讨间至少几人、每次最多几小时？",
+      "reference_answer": "至少3人，每次最多2小时",
+      "answerable": true,
+      "expected_evidence": [
+        {
+          "source": "library-services.html",
+          "page": 0,
+          "contains": "至少 3 人"
+        }
+      ],
+      "required_subquestions": [
+        "研讨间至少几人、每次最多几小时？"
+      ],
+      "annotation_status": "source-inspected; teammate review pending"
+    },
+    {
+      "id": "q17",
+      "category": "numeric",
+      "split": "test",
+      "question": "遗失图书除了原价还需多少加工费？",
+      "reference_answer": "10元",
+      "answerable": true,
+      "expected_evidence": [
+        {
+          "source": "campus-faq.txt",
+          "page": 0,
+          "contains": "10 元"
+        }
+      ],
+      "required_subquestions": [
+        "遗失图书除了原价还需多少加工费？"
+      ],
+      "annotation_status": "source-inspected; teammate review pending"
+    },
+    {
+      "id": "q18",
+      "category": "compare",
+      "split": "dev",
+      "question": "比较本科生和研究生的借阅期限，并结合开放时间说明还书设备可用性。",
+      "reference_answer": "本科生30天、研究生60天；自助还书机24小时可用",
+      "answerable": true,
+      "expected_evidence": [
+        {
+          "source": "campus-faq.txt",
+          "page": 0,
+          "contains": "本科生 30 天"
+        },
+        {
+          "source": "library-hours.txt",
+          "page": 0,
+          "contains": "24 小时"
+        }
+      ],
+      "required_subquestions": [
+        "本科生借阅期限",
+        "研究生借阅期限",
+        "自助还书机"
+      ],
+      "annotation_status": "source-inspected; teammate review pending"
+    },
+    {
+      "id": "q19",
+      "category": "compare",
+      "split": "test",
+      "question": "综合课程PDF提交指南与DOCX常见问题，提交物是否都要求保留.git？",
+      "reference_answer": "两份资料都要求保留.git",
+      "answerable": true,
+      "expected_evidence": [
+        {
+          "source": "course-project-guide.pdf",
+          "page": 1,
+          "contains": ".git"
+        },
+        {
+          "source": "course-faq.docx",
+          "page": 0,
+          "contains": ".git"
+        }
+      ],
+      "required_subquestions": [
+        "课程PDF提交指南",
+        "DOCX常见问题"
+      ],
+      "annotation_status": "source-inspected; teammate review pending"
+    },
+    {
+      "id": "q20",
+      "category": "compare",
+      "split": "test",
+      "question": "综合图书馆服务页和常见问题，研讨间人数与时长规定是否一致？",
+      "reference_answer": "一致，至少3人、最多2小时",
+      "answerable": true,
+      "expected_evidence": [
+        {
+          "source": "library-services.html",
+          "page": 0,
+          "contains": "至少 3 人"
+        },
+        {
+          "source": "campus-faq.txt",
+          "page": 0,
+          "contains": "至少 3 人"
+        }
+      ],
+      "required_subquestions": [
+        "图书馆服务页",
+        "常见问题"
+      ],
+      "annotation_status": "source-inspected; teammate review pending"
+    },
+    {
+      "id": "q21",
+      "category": "compare",
+      "split": "test",
+      "question": "结合RAG基础与实验指南，说明证据引用和评测应记录什么？",
+      "reference_answer": "引用编号对应证据；记录命中片段、来源和拒答",
+      "answerable": true,
+      "expected_evidence": [
+        {
+          "source": "rag-basics.md",
+          "page": 0,
+          "contains": "引用编号"
+        },
+        {
+          "source": "lab-guide.md",
+          "page": 0,
+          "contains": "至少记录三项"
+        }
+      ],
+      "required_subquestions": [
+        "引用",
+        "评测"
+      ],
+      "annotation_status": "source-inspected; teammate review pending"
+    },
+    {
+      "id": "q22",
+      "category": "ocr",
+      "split": "dev",
+      "question": "扫描通知中的期末周是第几周？",
+      "reference_answer": "第17-18周",
+      "answerable": true,
+      "expected_evidence": [
+        {
+          "source": "scanned-library-notice.png",
+          "page": 1,
+          "contains": "17-18"
+        }
+      ],
+      "required_subquestions": [
+        "扫描通知中的期末周是第几周？"
+      ],
+      "annotation_status": "source-inspected; teammate review pending"
+    },
+    {
+      "id": "q23",
+      "category": "ocr",
+      "split": "test",
+      "question": "扫描通知中主馆每天几点开放到几点？",
+      "reference_answer": "07:30-23:00",
+      "answerable": true,
+      "expected_evidence": [
+        {
+          "source": "scanned-library-notice.png",
+          "page": 1,
+          "contains": "07:30-23:00"
+        }
+      ],
+      "required_subquestions": [
+        "扫描通知中主馆每天几点开放到几点？"
+      ],
+      "annotation_status": "source-inspected; teammate review pending"
+    },
+    {
+      "id": "q24",
+      "category": "ocr",
+      "split": "test",
+      "question": "扫描通知中馆际互借服务台开放至几点？",
+      "reference_answer": "21:00",
+      "answerable": true,
+      "expected_evidence": [
+        {
+          "source": "scanned-library-notice.png",
+          "page": 1,
+          "contains": "21:00"
+        }
+      ],
+      "required_subquestions": [
+        "扫描通知中馆际互借服务台开放至几点？"
+      ],
+      "annotation_status": "source-inspected; teammate review pending"
+    },
+    {
+      "id": "q25",
+      "category": "outside",
+      "split": "dev",
+      "question": "2028年学校招生人数是多少？",
+      "reference_answer": "资料未提供，不应猜测",
+      "answerable": false,
+      "expected_evidence": [],
+      "required_subquestions": [
+        "2028年学校招生人数是多少？"
+      ],
+      "annotation_status": "source-inspected; teammate review pending"
+    },
+    {
+      "id": "q26",
+      "category": "outside",
+      "split": "dev",
+      "question": "这所学校校长的私人电话号码是多少？",
+      "reference_answer": "资料未提供，不应猜测",
+      "answerable": false,
+      "expected_evidence": [],
+      "required_subquestions": [
+        "这所学校校长的私人电话号码是多少？"
+      ],
+      "annotation_status": "source-inspected; teammate review pending"
+    },
+    {
+      "id": "q27",
+      "category": "outside",
+      "split": "test",
+      "question": "明天本地气温是多少？",
+      "reference_answer": "资料未提供，不应猜测",
+      "answerable": false,
+      "expected_evidence": [],
+      "required_subquestions": [
+        "明天本地气温是多少？"
+      ],
+      "annotation_status": "source-inspected; teammate review pending"
+    },
+    {
+      "id": "q28",
+      "category": "outside",
+      "split": "test",
+      "question": "学校食堂今日菜单是什么？",
+      "reference_answer": "资料未提供，不应猜测",
+      "answerable": false,
+      "expected_evidence": [],
+      "required_subquestions": [
+        "学校食堂今日菜单是什么？"
+      ],
+      "annotation_status": "source-inspected; teammate review pending"
+    },
+    {
+      "id": "q29",
+      "category": "outside",
+      "split": "test",
+      "question": "SVM在本课程实验中的准确率是多少？",
+      "reference_answer": "资料未提供，不应猜测",
+      "answerable": false,
+      "expected_evidence": [],
+      "required_subquestions": [
+        "SVM在本课程实验中的准确率是多少？"
+      ],
+      "annotation_status": "source-inspected; teammate review pending"
+    },
+    {
+      "id": "q30",
+      "category": "outside",
+      "split": "test",
+      "question": "图书馆是否承诺2029年免除所有逾期费？",
+      "reference_answer": "资料未提供，不应猜测",
+      "answerable": false,
+      "expected_evidence": [],
+      "required_subquestions": [
+        "图书馆是否承诺2029年免除所有逾期费？"
+      ],
+      "annotation_status": "source-inspected; teammate review pending"
+    }
+  ]
+}

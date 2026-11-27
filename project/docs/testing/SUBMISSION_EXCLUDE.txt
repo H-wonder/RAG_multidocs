@@ -1,0 +1,21 @@
+# Must exclude from public commit/release. No files deleted by this list.
+project/tests/p0_live.py
+project/tools/rag_personal_acceptance.py
+# Above are already tracked and contain private identity strings in HEAD.
+# Ignore rules do NOT remove tracked files or historical contents.
+config.json
+config.ds-test.json
+project/config.json
+.rag/
+project/.rag/
+**/credentials.json
+.env and local environment files
+data/
+project/data/
+project/docs/history/local/
+private user corpora and raw OCR/Prompt/context/model-response logs
+Milvus volumes and historical SQLite databases
+Conda/venv environments and model/download caches
+A/B frozen snapshots (outside this repository)
+__pycache__/ pytest and Ruff caches
+intermediate design render PNG/PDF output (outside this repository)

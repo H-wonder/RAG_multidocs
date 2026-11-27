@@ -1,0 +1,19 @@
+{
+  "name": "connector.jsonl",
+  "kind": "connector",
+  "contract_version": "1",
+  "version": "1.0.0",
+  "description": "Independent structured record example",
+  "entry": "adapter:load",
+  "enabled": true,
+  "input_schema": {
+    "type": "object",
+    "required": [
+      "path"
+    ]
+  },
+  "file_extensions": [
+    ".jsonl"
+  ],
+  "auto_priority": 0
+}

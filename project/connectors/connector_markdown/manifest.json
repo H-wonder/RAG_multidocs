@@ -6,7 +6,9 @@
   "enabled": true,
   "input_schema": {
     "type": "object",
-    "required": ["path"],
+    "required": [
+      "path"
+    ],
     "properties": {
       "path": {
         "type": "string",
@@ -17,5 +19,10 @@
   "output_schema": {
     "type": "object",
     "description": "ConnectorResult：documents + issues"
-  }
+  },
+  "file_extensions": [
+    ".md",
+    ".markdown"
+  ],
+  "auto_priority": 0
 }

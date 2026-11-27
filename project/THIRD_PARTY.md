@@ -2,7 +2,7 @@
 
 ## 已有起点
 
-本项目的部分模块改编自作者此前的 DocFlow 工程（`new1`）：
+原始main基线为 https://github.com/H-wonder/RAG_multidocs 的 f38a46d。本项目部分模块沿用其DocFlow来源；以下表格说明历史来源，不是本轮寻找外部new1工程或下载额外代码的要求：
 
 | 本项目文件 | 来源 | 处理 |
 | --- | --- | --- |
@@ -23,8 +23,7 @@
 
 ## docparse（可选依赖）
 
-PDF/扫描件/Office 解析由外部 docparse 提供，本项目不复制其源码，只在运行时通过
-子进程调用 `DOCPARSE_PYTHON -m docparse`。
+PDF/扫描件/Office解析复用仓库已有可选组件docparse，通过独立解释器/子进程调用；Word/Excel使用现有公开Office结构服务，图片/PDF使用Parser/OCR。源码目录随现有工程保留，但其整体再分发许可需独立确认，不能因为宿主MIT而自动推定。
 
 - 源码位置：`../已有资源/可选组件/docparse/`
 - docparse 的 `docparse/vendor/` 来自 SeerRay-Lab/Xiaomi-OCR-0，**Apache-2.0**；
@@ -43,3 +42,8 @@ PDF/扫描件/Office 解析由外部 docparse 提供，本项目不复制其源�
 
 可选运行时（docparse、Milvus、Ollama）的依赖与许可见
 `../已有资源/文档/06-来源许可与依赖.md`。
+
+
+## B版增量与发布边界
+
+B保留Connector/Reranker双扩展点、统一Core、Office/Image/CSV及现有结构化能力。Embedding、CrossEncoder、Ollama OCR与对话模型的权重不随源码提交，各模型许可须按实际使用与发行方式核对。MIT声明仅覆盖有权以MIT发布的项目代码；SQLite历史实现保留兼容但不构成当前正常Milvus依赖。用户真实验收资料和API调用授权不构成公开资料再分发授权。
