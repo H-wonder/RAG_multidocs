@@ -92,11 +92,17 @@ def test_coverage_gain_not_document_count_and_all_neighbors_budgeted():
     assert not select_context([huge], ["超长"], resources, p)[0]
 
 
-def test_low_relevance_candidates_not_context():
+def test_low_relevance_score_is_not_a_semantic_veto():
+    candidate = h("a", "低相关", 0.01)
     hits, missing, tokens = select_context(
-        [h("a", "低相关", 0.01)],
+        [candidate],
         ["目标"],
         {"context_k": 2, "context_tokens": 1000},
         RetrievalPolicy(),
     )
-    assert hits == [] and tokens == 0
+    # B retains ranked evidence: an uncalibrated score cannot prove irrelevance.
+    # Retention must not claim that the requested fact is covered.
+    assert hits == [candidate]
+    assert hits[0]["normalized_relevance"] == 0.01
+    assert missing == ["目标"]
+    assert 0 < tokens <= 1000

@@ -23,8 +23,14 @@ def files(tmp_path):
     return tmp_path
 
 
-def registry(enabled=None):
-    return ConnectorRegistry(PROJECT / "connectors", enabled=enabled, context={"settings": {"docparse_python": str(PARSER), "docparse_repo": str(PROJECT.parent/'已有资源/可选组件/docparse')}})
+def registry(enabled=None, *, parser_python=PARSER, parser_repo=None):
+    return ConnectorRegistry(
+        PROJECT / "connectors", enabled=enabled,
+        context={"settings": {
+            "docparse_python": str(parser_python),
+            "docparse_repo": str(parser_repo or PROJECT.parent / '已有资源/可选组件/docparse'),
+        }},
+    )
 
 
 def core_hashes():
@@ -78,12 +84,30 @@ def test_excel_sheets_types_formula_and_input_change(files):
 
 @pytest.mark.parametrize('name,ext',[('word','docx'),('excel','xlsx'),('image','png')])
 def test_plugins_disabled_missing_corrupt_and_existing_connector(name,ext,tmp_path):
+    # This unit test checks Registry/adapter/worker error propagation, not the
+    # optional Office parser. Run the real worker with a controlled public
+    # parser boundary and a stdlib failure, without a machine-specific env.
+    parser_repo = tmp_path / "parser_fixture"
+    package = parser_repo / "docparse"
+    package.mkdir(parents=True)
+    (package / "__init__.py").write_text("", encoding="utf-8")
+    (package / "office.py").write_text(
+        "import zipfile\n"
+        "def structured_parse(path, options):\n"
+        "    with zipfile.ZipFile(path):\n"
+        "        raise AssertionError('expected corrupt OOXML fixture')\n",
+        encoding="utf-8",
+    )
+    configured = {"parser_python": sys.executable, "parser_repo": parser_repo}
     file=tmp_path/f'bad.{ext}'
     file.write_bytes(b'not a valid document')
     key='connector.'+name
-    assert registry(set()).load(key,ConnectorConfig(key,str(file))).issues[0].code=='CONNECTOR_DISABLED'
-    assert registry().load(key,ConnectorConfig(key,str(tmp_path/'absent'))).issues[0].code=='FILE_NOT_FOUND'
-    assert registry().load(key,ConnectorConfig(key,str(file))).issues[0].code=='PARSE_ERROR'
+    assert registry(set(), **configured).load(key,ConnectorConfig(key,str(file))).issues[0].code=='CONNECTOR_DISABLED'
+    assert registry(**configured).load(key,ConnectorConfig(key,str(tmp_path/'absent'))).issues[0].code=='FILE_NOT_FOUND'
+    corrupt = registry(**configured).load(key, ConnectorConfig(key, str(file)))
+    assert not corrupt.documents and corrupt.issues[0].code == 'PARSE_ERROR'
+    if name in {'word', 'excel'}:
+        assert corrupt.issues[0].message == 'BadZipFile'
     assert registry().load('connector.markdown',ConnectorConfig('connector.markdown',str(PROJECT/'samples/campus-corpus/markdown'))).documents
 
 
